@@ -66,29 +66,30 @@ public void Enqueue(ShipEvent evt)
 
 export default function CodeHighlights() {
   return (
-    <section className="py-24 md:py-32 relative z-10">
-      <div className="max-w-6xl mx-auto px-6">
+    <section className="py-20 md:py-28 border-b border-bg-tertiary">
+      <div className="max-w-3xl mx-auto px-6">
         <ScrollReveal>
-          <h2 className="text-4xl md:text-5xl font-bold text-center mb-4">
-            Code <span className="text-accent-cyan">Quality</span>
+          <p className="text-text-muted text-sm font-mono mb-3">Highlights</p>
+          <h2 className="text-3xl md:text-4xl font-semibold mb-4">
+            Code quality
           </h2>
-          <p className="text-text-secondary text-center max-w-2xl mx-auto mb-16">
+          <p className="text-text-secondary mb-12 max-w-2xl">
             Engineering decisions that matter at scale.
           </p>
         </ScrollReveal>
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="space-y-6">
           {highlights.map((highlight, index) => (
             <ScrollReveal key={highlight.title} delay={index * 0.1}>
-              <div className="bg-bg-secondary rounded-xl p-6 border border-[#1e3a5f] hover:border-accent-cyan transition-all">
-                <h3 className="text-xl font-bold text-accent-amber mb-2">
+              <article className="border border-bg-tertiary rounded-lg p-6">
+                <h3 className="text-lg font-medium text-text-primary mb-2">
                   {highlight.title}
                 </h3>
                 <p className="text-text-secondary text-sm mb-4">
                   {highlight.description}
                 </p>
                 <CodeBlock code={highlight.code} />
-              </div>
+              </article>
             </ScrollReveal>
           ))}
         </div>

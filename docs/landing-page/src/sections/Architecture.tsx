@@ -1,208 +1,171 @@
 import { useState } from 'react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import ScrollReveal from '../components/ScrollReveal'
 
-interface ProjectDetail {
+interface Project {
+  id: string
   name: string
+  role: string
   description: string
   technologies: string[]
+  responsibilities: string[]
   githubPath: string
 }
 
-const projects: Record<string, ProjectDetail> = {
-  FleetCloud: {
-    name: 'FleetCloud',
-    description: 'ASP.NET Core Minimal API that receives telemetry and alerts from ship-edge workers. Exposes REST endpoints for fleet-wide monitoring and health checks.',
-    technologies: ['.NET 10', 'ASP.NET Core Minimal APIs', 'EF Core', 'SQLite'],
-    githubPath: 'src/FleetCloud',
-  },
-  ShipEdge: {
+const projects: Project[] = [
+  {
+    id: 'ShipEdge',
     name: 'ShipEdge',
-    description: 'Background worker running on each ship. Collects sensor data, evaluates rules, and transmits critical events via satellite gateway with circuit breaker resilience.',
-    technologies: ['.NET 10', 'BackgroundService', 'Priority Queue', 'Circuit Breaker'],
+    role: 'Background Worker',
+    description:
+      'Runs on every vessel. Collects sensor telemetry, evaluates business rules, and transmits critical events to FleetCloud via a resilient satellite gateway.',
+    technologies: ['.NET 10', 'BackgroundService', 'Priority Queue', 'Circuit Breaker', 'SQLite'],
+    responsibilities: [
+      'Collect telemetry from engine, hull, and cargo sensors',
+      'Evaluate rules: fire detection, engine overheat, hull breach',
+      'Queue events by priority (Critical > Operational > Telemetry)',
+      'Transmit via satellite with circuit breaker resilience',
+      'Persist failed events to SQLite for crash recovery',
+    ],
     githubPath: 'src/ShipEdge',
   },
-  Shared: {
+  {
+    id: 'FleetCloud',
+    name: 'FleetCloud',
+    role: 'Fleet API',
+    description:
+      'ASP.NET Core Minimal API receiving telemetry and alerts from all ships. Exposes endpoints for fleet health monitoring and ship registry management.',
+    technologies: ['.NET 10', 'Minimal APIs', 'EF Core', 'SQLite', 'xUnit'],
+    responsibilities: [
+      'Ingest telemetry batches from ShipEdge workers',
+      'Maintain ship registry with online/offline status',
+      'Expose REST endpoints for fleet dashboard data',
+      'Validate inbound requests with size limits and JSON schema',
+    ],
+    githubPath: 'src/FleetCloud',
+  },
+  {
+    id: 'Shared',
     name: 'Shared',
-    description: 'Common models, events, and contracts used by both FleetCloud and ShipEdge. Defines sensor readings, alert types, and serialization formats.',
+    role: 'Contracts',
+    description:
+      'Common domain models, events, and contracts referenced by both FleetCloud and ShipEdge. Keeps the system contractually consistent.',
     technologies: ['.NET 10 Class Library', 'System.Text.Json'],
+    responsibilities: [
+      'Define sensor reading, alert, and command models',
+      'Serialize events for wire transfer and SQLite storage',
+      'Ensure type safety across service boundaries',
+    ],
     githubPath: 'src/Shared',
   },
-  Simulators: {
+  {
+    id: 'Simulators',
     name: 'Simulators',
-    description: 'Test harnesses that simulate satellite link intermittency and sensor data streams for integration and end-to-end testing.',
+    role: 'Test Harness',
+    description:
+      'Console applications that inject realistic failure modes into the system for integration and end-to-end testing.',
     technologies: ['.NET 10 Console', 'Randomized failure injection'],
+    responsibilities: [
+      'Simulate satellite link intermittency (random up/down)',
+      'Generate synthetic sensor data streams',
+      'Drive end-to-end integration tests',
+    ],
     githubPath: 'src/Simulators',
   },
-}
+]
 
 export default function Architecture() {
-  const [selected, setSelected] = useState<string | null>(null)
-  const [failureMode, setFailureMode] = useState(false)
-
-  const selectedProject = selected ? projects[selected] : null
+  const [expanded, setExpanded] = useState<string | null>('ShipEdge')
 
   return (
-    <section id="architecture" className="py-24 md:py-32 relative z-10">
-      <div className="max-w-6xl mx-auto px-6">
+    <section id="architecture" className="py-20 md:py-28 border-b border-bg-tertiary">
+      <div className="max-w-3xl mx-auto px-6">
         <ScrollReveal>
-          <h2 className="text-4xl md:text-5xl font-bold text-center mb-4">
-            System <span className="text-accent-cyan">Architecture</span>
+          <p className="text-text-muted text-sm font-mono mb-3">Architecture</p>
+          <h2 className="text-3xl md:text-4xl font-semibold mb-4">
+            How it works
           </h2>
-          <p className="text-text-secondary text-center max-w-2xl mx-auto mb-12">
-            Four interconnected projects forming a resilient distributed monitoring system.
+          <p className="text-text-secondary mb-12 max-w-2xl">
+            Four projects, one system. ShipEdge runs on the vessel, FleetCloud
+            runs on shore. Shared keeps the contracts straight. Simulators make
+            sure the whole thing holds up under failure.
           </p>
         </ScrollReveal>
 
-        <ScrollReveal delay={0.2}>
-          <div className="flex justify-center mb-8">
-            <button
-              onClick={() => setFailureMode((prev) => !prev)}
-              aria-pressed={failureMode}
-              className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                failureMode
-                  ? 'bg-accent-red text-white'
-                  : 'bg-accent-green text-bg-primary'
-              }`}
-            >
-              {failureMode ? 'Failure Mode' : 'Normal Operations'}
-            </button>
-          </div>
-        </ScrollReveal>
+        <div className="space-y-3">
+          {projects.map((project) => {
+            const isOpen = expanded === project.id
+            return (
+              <ScrollReveal key={project.id}>
+                <div className="border border-bg-tertiary rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setExpanded(isOpen ? null : project.id)}
+                    className="w-full flex items-center justify-between p-5 text-left hover:bg-bg-secondary transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <span className="text-accent font-mono text-sm">
+                        {project.id}
+                      </span>
+                      <div>
+                        <span className="font-medium text-text-primary">
+                          {project.name}
+                        </span>
+                        <span className="text-text-muted text-sm ml-2">
+                          {project.role}
+                        </span>
+                      </div>
+                    </div>
+                    {isOpen ? (
+                      <ChevronUp size={18} className="text-text-muted" />
+                    ) : (
+                      <ChevronDown size={18} className="text-text-muted" />
+                    )}
+                  </button>
 
-        <ScrollReveal delay={0.3}>
-          <div className="relative bg-bg-secondary rounded-xl p-8 md:p-12 overflow-hidden">
-            {/* Architecture diagram */}
-            <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16">
-              {/* ShipEdge */}
-              <div
-                role="button"
-                tabIndex={0}
-                aria-pressed={selected === 'ShipEdge'}
-                aria-label="Select ShipEdge project details"
-                onClick={() => setSelected('ShipEdge')}
-                onKeyDown={(e) => e.key === 'Enter' && setSelected('ShipEdge')}
-                className={`cursor-pointer rounded-xl p-6 border-2 transition-all hover:scale-105 ${
-                  selected === 'ShipEdge'
-                    ? 'border-accent-cyan bg-bg-primary'
-                    : 'border-[#1e3a5f] hover:border-accent-cyan'
-                }`}
-              >
-                <div className="text-2xl font-bold text-accent-amber mb-1">ShipEdge</div>
-                <div className="text-sm text-text-muted">Ship-side Worker</div>
-              </div>
+                  {isOpen && (
+                    <div className="px-5 pb-5 border-t border-bg-tertiary bg-bg-secondary/30">
+                      <p className="text-text-secondary text-sm mt-4 mb-4 leading-relaxed">
+                        {project.description}
+                      </p>
 
-              {/* Connection with arrow */}
-              <div className="flex flex-col items-center">
-                <svg width="80" height="40" className="hidden md:block">
-                  <line
-                    x1="0"
-                    y1="20"
-                    x2="70"
-                    y2="20"
-                    stroke={failureMode ? '#ef4444' : '#10b981'}
-                    strokeWidth="2"
-                    className={failureMode ? '' : 'pulse-line'}
-                  />
-                  <polygon
-                    points="70,20 60,15 60,25"
-                    fill={failureMode ? '#ef4444' : '#10b981'}
-                  />
-                  {failureMode && (
-                    <text x="35" y="12" textAnchor="middle" fill="#ef4444" fontSize="10">
-                      OPEN
-                    </text>
+                      <div className="flex flex-wrap gap-2 mb-5">
+                        {project.technologies.map((tech) => (
+                          <span
+                            key={tech}
+                            className="px-2 py-1 bg-bg-primary rounded text-xs text-text-muted font-mono border border-bg-tertiary"
+                          >
+                            {tech}
+                          </span>
+                        ))}
+                      </div>
+
+                      <ul className="space-y-2 mb-5">
+                        {project.responsibilities.map((item, i) => (
+                          <li
+                            key={i}
+                            className="text-sm text-text-secondary flex items-start gap-2"
+                          >
+                            <span className="text-accent mt-1.5">—</span>
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+
+                      <a
+                        href={`https://github.com/suzukiven0m/alina/tree/master/${project.githubPath}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-accent hover:text-text-primary transition-colors"
+                      >
+                        View source →
+                      </a>
+                    </div>
                   )}
-                </svg>
-                <span className="text-xs text-text-muted mt-1">HTTP / Satellite</span>
-              </div>
-
-              {/* FleetCloud */}
-              <div
-                role="button"
-                tabIndex={0}
-                aria-pressed={selected === 'FleetCloud'}
-                aria-label="Select FleetCloud project details"
-                onClick={() => setSelected('FleetCloud')}
-                onKeyDown={(e) => e.key === 'Enter' && setSelected('FleetCloud')}
-                className={`cursor-pointer rounded-xl p-6 border-2 transition-all hover:scale-105 ${
-                  selected === 'FleetCloud'
-                    ? 'border-accent-cyan bg-bg-primary'
-                    : 'border-[#1e3a5f] hover:border-accent-cyan'
-                }`}
-              >
-                <div className="text-2xl font-bold text-accent-green mb-1">FleetCloud</div>
-                <div className="text-sm text-text-muted">Fleet API</div>
-              </div>
-            </div>
-
-            {/* Shared and Simulators below */}
-            <div className="flex justify-center gap-8 mt-12">
-              <div
-                role="button"
-                tabIndex={0}
-                aria-pressed={selected === 'Shared'}
-                aria-label="Select Shared project details"
-                onClick={() => setSelected('Shared')}
-                onKeyDown={(e) => e.key === 'Enter' && setSelected('Shared')}
-                className={`cursor-pointer rounded-xl p-6 border-2 transition-all hover:scale-105 ${
-                  selected === 'Shared'
-                    ? 'border-accent-cyan bg-bg-primary'
-                    : 'border-[#1e3a5f] hover:border-accent-cyan'
-                }`}
-              >
-                <div className="text-xl font-bold text-accent-cyan mb-1">Shared</div>
-                <div className="text-sm text-text-muted">Models & Events</div>
-              </div>
-
-              <div
-                role="button"
-                tabIndex={0}
-                aria-pressed={selected === 'Simulators'}
-                aria-label="Select Simulators project details"
-                onClick={() => setSelected('Simulators')}
-                onKeyDown={(e) => e.key === 'Enter' && setSelected('Simulators')}
-                className={`cursor-pointer rounded-xl p-6 border-2 transition-all hover:scale-105 ${
-                  selected === 'Simulators'
-                    ? 'border-accent-cyan bg-bg-primary'
-                    : 'border-[#1e3a5f] hover:border-accent-cyan'
-                }`}
-              >
-                <div className="text-xl font-bold text-text-secondary mb-1">Simulators</div>
-                <div className="text-sm text-text-muted">Test Harness</div>
-              </div>
-            </div>
-
-            {/* Detail panel */}
-            {selectedProject && (
-              <div className="mt-8 p-6 bg-bg-primary rounded-lg border border-[#1e3a5f]">
-                <h3 className="text-2xl font-bold text-accent-amber mb-2">
-                  {selectedProject.name}
-                </h3>
-                <p className="text-text-secondary mb-4">
-                  {selectedProject.description}
-                </p>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {selectedProject.technologies.map((tech) => (
-                    <span
-                      key={tech}
-                      className="px-3 py-1 bg-bg-secondary rounded-full text-sm text-accent-cyan"
-                    >
-                      {tech}
-                    </span>
-                  ))}
                 </div>
-                <a
-                  href={`https://github.com/suzukiven0m/alina/tree/master/${selectedProject.githubPath}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-accent-amber hover:underline text-sm"
-                >
-                  View source →
-                </a>
-              </div>
-            )}
-          </div>
-        </ScrollReveal>
+              </ScrollReveal>
+            )
+          })}
+        </div>
       </div>
     </section>
   )

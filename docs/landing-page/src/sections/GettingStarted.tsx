@@ -19,13 +19,14 @@ export default function GettingStarted() {
   }
 
   return (
-    <section className="py-24 md:py-32 relative z-10">
-      <div className="max-w-4xl mx-auto px-6">
+    <section className="py-20 md:py-28 border-b border-bg-tertiary">
+      <div className="max-w-3xl mx-auto px-6">
         <ScrollReveal>
-          <h2 className="text-4xl md:text-5xl font-bold text-center mb-4">
-            Get <span className="text-accent-cyan">Started</span>
+          <p className="text-text-muted text-sm font-mono mb-3">Setup</p>
+          <h2 className="text-3xl md:text-4xl font-semibold mb-4">
+            Get started
           </h2>
-          <p className="text-text-secondary text-center max-w-2xl mx-auto mb-12">
+          <p className="text-text-secondary mb-12 max-w-2xl">
             Clone, compose, and go. Three commands to a running system.
           </p>
         </ScrollReveal>
@@ -35,8 +36,9 @@ export default function GettingStarted() {
             <Terminal lines={commands} typingSpeed={40} />
             <button
               onClick={copyToClipboard}
-              className="absolute top-3 right-3 p-2 bg-bg-secondary rounded-lg border border-[#30363d] hover:border-accent-cyan transition-colors"
+              className="absolute top-3 right-3 p-2 bg-bg-secondary rounded-lg border border-bg-tertiary hover:border-accent transition-colors"
               title="Copy to clipboard"
+              aria-label="Copy commands to clipboard"
             >
               {copied ? (
                 <Check size={16} className="text-accent-green" />
@@ -47,16 +49,15 @@ export default function GettingStarted() {
           </div>
         </ScrollReveal>
 
-        {/* Badges */}
         <ScrollReveal delay={0.4}>
-          <div className="flex flex-wrap justify-center gap-4 mt-8">
-            <span className="px-4 py-2 bg-bg-secondary rounded-full text-sm text-text-secondary border border-[#1e3a5f]">
+          <div className="flex flex-wrap gap-3 mt-8">
+            <span className="px-3 py-1.5 bg-bg-secondary rounded text-sm text-text-secondary border border-bg-tertiary font-mono">
               MIT License
             </span>
-            <span className="px-4 py-2 bg-bg-secondary rounded-full text-sm text-text-secondary border border-[#1e3a5f]">
+            <span className="px-3 py-1.5 bg-bg-secondary rounded text-sm text-text-secondary border border-bg-tertiary font-mono">
               .NET 10
             </span>
-            <span className="px-4 py-2 bg-bg-secondary rounded-full text-sm text-text-secondary border border-[#1e3a5f]">
+            <span className="px-3 py-1.5 bg-bg-secondary rounded text-sm text-text-secondary border border-bg-tertiary font-mono">
               Docker Ready
             </span>
           </div>

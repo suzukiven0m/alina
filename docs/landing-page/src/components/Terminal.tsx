@@ -37,8 +37,8 @@ export default function Terminal({ lines, typingSpeed = 30, className = '' }: Te
   }, [currentLine, currentChar, lines, typingSpeed])
 
   return (
-    <div className={`rounded-lg bg-[#0d1117] border border-[#30363d] overflow-hidden ${className}`}>
-      <div className="flex items-center gap-2 px-4 py-2 bg-[#161b22] border-b border-[#30363d]">
+    <div className={`rounded-lg bg-bg-primary border border-bg-tertiary overflow-hidden ${className}`}>
+      <div className="flex items-center gap-2 px-4 py-2 bg-bg-secondary border-b border-bg-tertiary">
         <div className="w-3 h-3 rounded-full bg-accent-red" />
         <div className="w-3 h-3 rounded-full bg-accent-amber" />
         <div className="w-3 h-3 rounded-full bg-accent-green" />
@@ -54,7 +54,7 @@ export default function Terminal({ lines, typingSpeed = 30, className = '' }: Te
           <div className="leading-relaxed">
             <span className="text-accent-green">$</span>{' '}
             {lines[currentLine].slice(0, currentChar)}
-            <span className="animate-pulse text-accent-cyan">|</span>
+            <span className="animate-pulse text-accent">|</span>
           </div>
         )}
       </div>

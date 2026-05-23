@@ -56,7 +56,7 @@ export default function AnimatedCounter({
 
   return (
     <div ref={ref} className="text-center">
-      <div className="text-5xl md:text-6xl font-bold text-accent-cyan font-mono">
+      <div className="text-4xl md:text-5xl font-semibold text-accent font-mono">
         {prefix}
         {count}
         {suffix}

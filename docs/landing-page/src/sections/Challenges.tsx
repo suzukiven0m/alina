@@ -13,7 +13,7 @@ interface Challenge {
 
 const challenges: Challenge[] = [
   {
-    icon: <WifiOff size={32} className="text-accent-red" />,
+    icon: <WifiOff size={24} className="text-accent-red" />,
     title: 'Satellite Intermittency',
     problem: 'Ships lose satellite connectivity unpredictably. Failed transmissions must not crash the system or flood the network.',
     solution: 'Circuit breaker pattern with exponential backoff. After N failures, the circuit opens and queues events locally.',
@@ -29,10 +29,10 @@ const challenges: Challenge[] = [
 }`,
   },
   {
-    icon: <Layers size={32} className="text-accent-amber" />,
+    icon: <Layers size={24} className="text-accent-amber" />,
     title: 'Event Prioritization',
     problem: 'Not all telemetry is equal. Fire alarms must outrank routine engine temperature checks.',
-    solution: 'Priority-aware queue with three tiers: Critical, Operational, Telemetry. Dequeue always pulls highest priority first.',
+    solution: 'Priority-aware queue with three tiers. Dequeue always pulls highest priority first.',
     code: `public ShipEvent? Dequeue()
 {
     if (_critical.TryDequeue(out var critical))
@@ -45,13 +45,14 @@ const challenges: Challenge[] = [
 }`,
   },
   {
-    icon: <Database size={32} className="text-accent-green" />,
+    icon: <Database size={24} className="text-accent-green" />,
     title: 'Data Loss Prevention',
     problem: 'A ship-edge worker crash must not lose events that failed to transmit.',
     solution: 'Incremental SQLite persistence. Only new events are appended. On restart, the queue is restored from disk.',
     code: `public async Task PersistAsync()
 {
-    await using var connection = new SqliteConnection(_connectionString);
+    await using var connection =
+        new SqliteConnection(_connectionString);
     await connection.OpenAsync();
     foreach (var evt in _unpersistedEvents)
     {
@@ -63,54 +64,61 @@ const challenges: Challenge[] = [
 ]
 
 export default function Challenges() {
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const [expanded, setExpanded] = useState<number | null>(null)
 
   return (
-    <section className="py-24 md:py-32 relative z-10">
-      <div className="max-w-6xl mx-auto px-6">
+    <section className="py-20 md:py-28 border-b border-bg-tertiary">
+      <div className="max-w-3xl mx-auto px-6">
         <ScrollReveal>
-          <h2 className="text-4xl md:text-5xl font-bold text-center mb-4">
-            Hard <span className="text-accent-cyan">Problems</span> Solved
+          <p className="text-text-muted text-sm font-mono mb-3">Design Decisions</p>
+          <h2 className="text-3xl md:text-4xl font-semibold mb-4">
+            Hard problems solved
           </h2>
-          <p className="text-text-secondary text-center max-w-2xl mx-auto mb-16">
-            Real maritime constraints demand real engineering solutions.
+          <p className="text-text-secondary mb-12 max-w-2xl">
+            Maritime constraints demand specific engineering tradeoffs.
+            Here is how the system handles three of the hardest.
           </p>
         </ScrollReveal>
 
-        <div className="grid md:grid-cols-3 gap-6">
-          {challenges.map((challenge, index) => (
-            <ScrollReveal key={challenge.title} delay={index * 0.15}>
-              <div
-                className="relative bg-bg-secondary rounded-xl p-8 border border-[#1e3a5f] hover:border-accent-cyan transition-all hover:-translate-y-1 group"
-                onMouseEnter={() => setHoveredIndex(index)}
-                onMouseLeave={() => setHoveredIndex(null)}
-              >
-                <div className="mb-4">{challenge.icon}</div>
-                <h3 className="text-xl font-bold text-text-primary mb-3">
-                  {challenge.title}
-                </h3>
-                <p className="text-text-secondary text-sm mb-4">
-                  <span className="text-accent-red font-medium">Problem: </span>
-                  {challenge.problem}
-                </p>
-                <p className="text-text-secondary text-sm">
-                  <span className="text-accent-green font-medium">Solution: </span>
-                  {challenge.solution}
-                </p>
+        <div className="space-y-6">
+          {challenges.map((challenge, index) => {
+            const isOpen = expanded === index
+            return (
+              <ScrollReveal key={challenge.title} delay={index * 0.1}>
+                <article className="border border-bg-tertiary rounded-lg p-6 hover:border-bg-tertiary/80 transition-colors">
+                  <div className="flex items-start gap-4">
+                    <div className="mt-1 flex-shrink-0">{challenge.icon}</div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-medium text-text-primary mb-2">
+                        {challenge.title}
+                      </h3>
+                      <p className="text-text-secondary text-sm mb-3">
+                        <span className="text-accent-red">Problem: </span>
+                        {challenge.problem}
+                      </p>
+                      <p className="text-text-secondary text-sm mb-4">
+                        <span className="text-accent-green">Solution: </span>
+                        {challenge.solution}
+                      </p>
 
-                {/* Code tooltip */}
-                <div
-                  className={`absolute left-0 right-0 -bottom-4 translate-y-full z-20 p-4 transition-all duration-300 ${
-                    hoveredIndex === index
-                      ? 'opacity-100 visible'
-                      : 'opacity-0 invisible'
-                  }`}
-                >
-                  <CodeBlock code={challenge.code} />
-                </div>
-              </div>
-            </ScrollReveal>
-          ))}
+                      <button
+                        onClick={() => setExpanded(isOpen ? null : index)}
+                        className="text-sm text-accent hover:text-text-primary transition-colors font-mono"
+                      >
+                        {isOpen ? 'Hide implementation' : 'Show implementation'}
+                      </button>
+
+                      {isOpen && (
+                        <div className="mt-4">
+                          <CodeBlock code={challenge.code} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              </ScrollReveal>
+            )
+          })}
         </div>
       </div>
     </section>
