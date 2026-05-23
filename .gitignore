@@ -1,0 +1,51 @@
+# Build outputs
+bin/
+obj/
+out/
+publish/
+
+# SQLite databases (runtime + test artifacts)
+*.db
+*.db-shm
+*.db-wal
+
+# AI / Claude context
+.claude/
+
+# Design specs (private)
+docs/superpowers/specs/
+
+# .NET
+*.dll
+*.exe
+*.pdb
+*.cache
+*.log
+*.user
+*.suo
+*.userprefs
+
+# IDE
+.vs/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test results
+TestResults/
+coverage/
+
+# NuGet
+*.nupkg
+packages/
+
+# Secrets
+*.env
+.env.*
+appsettings.Production.json
+appsettings.*.local.json
