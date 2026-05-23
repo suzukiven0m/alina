@@ -1,0 +1,22 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/FleetCloud/">
+    <Project Path="src/FleetCloud/CargoShipMonitoring.FleetCloud.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared/">
+    <Project Path="src/Shared/CargoShipMonitoring.Shared.csproj" />
+  </Folder>
+  <Folder Name="/src/ShipEdge/">
+    <Project Path="src/ShipEdge/CargoShipMonitoring.ShipEdge.csproj" />
+  </Folder>
+  <Folder Name="/src/Simulators/">
+    <Project Path="src/Simulators/CargoShipMonitoring.Simulators.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/FleetCloud.Tests/">
+    <Project Path="tests/FleetCloud.Tests/CargoShipMonitoring.FleetCloud.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/ShipEdge.Tests/">
+    <Project Path="tests/ShipEdge.Tests/CargoShipMonitoring.ShipEdge.Tests.csproj" />
+  </Folder>
+</Solution>

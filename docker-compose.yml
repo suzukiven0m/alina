@@ -1,0 +1,80 @@
+version: "3.8"
+
+services:
+  fleet-cloud:
+    build:
+      context: .
+      dockerfile: src/FleetCloud/Dockerfile
+    ports:
+      - "5000:80"
+    environment:
+      - ASPNETCORE_URLS=http://+:80
+    volumes:
+      - fleet-data:/app/data
+    networks:
+      - ship-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+
+  ship-edge:
+    build:
+      context: .
+      dockerfile: src/ShipEdge/Dockerfile
+    environment:
+      - ShipId=MSC-001
+      - CloudEndpoint=http://fleet-cloud:80
+      - DbPath=/app/data/ship_buffer.db
+    volumes:
+      - ship-data:/app/data
+    depends_on:
+      fleet-cloud:
+        condition: service_healthy
+    networks:
+      - ship-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+
+  ship-edge-2:
+    build:
+      context: .
+      dockerfile: src/ShipEdge/Dockerfile
+    environment:
+      - ShipId=MSC-002
+      - CloudEndpoint=http://fleet-cloud:80
+      - DbPath=/app/data/ship_buffer.db
+    volumes:
+      - ship2-data:/app/data
+    depends_on:
+      fleet-cloud:
+        condition: service_healthy
+    networks:
+      - ship-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+
+volumes:
+  fleet-data:
+  ship-data:
+  ship2-data:
+
+networks:
+  ship-network:
+    driver: bridge

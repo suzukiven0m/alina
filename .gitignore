@@ -1,0 +1,56 @@
+# Build outputs
+bin/
+obj/
+out/
+publish/
+docs/landing-page/dist/
+
+# SQLite databases (runtime + test artifacts)
+*.db
+*.db-shm
+*.db-wal
+
+# AI / Claude context — never public
+.claude/
+
+# Private planning docs — never public
+docs/superpowers/
+
+# .NET build artifacts
+*.dll
+*.exe
+*.pdb
+*.cache
+*.log
+*.user
+*.suo
+*.userprefs
+
+# IDE
+.vs/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test results
+coverage/
+
+# NuGet
+*.nupkg
+packages/
+
+# Node (landing page)
+docs/landing-page/node_modules/
+
+# Secrets / local config
+*.env
+.env.*
+.env
+appsettings.Production.json
+appsettings.*.local.json
+secrets.json

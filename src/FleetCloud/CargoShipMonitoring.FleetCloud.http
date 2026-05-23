@@ -1,0 +1,6 @@
+@CargoShipMonitoring.FleetCloud_HostAddress = http://localhost:5269
+
+GET {{CargoShipMonitoring.FleetCloud_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
