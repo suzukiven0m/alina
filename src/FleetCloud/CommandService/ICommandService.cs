@@ -11,4 +11,6 @@ public interface ICommandService
     Task RecordFailureAsync(Guid commandId, string? reason = null);
     Task RecordSuccessAsync(Guid commandId);
     Task RecordRejectedAsync(Guid commandId, string reason);
+    Task<List<PendingCommand>> GetCommandsReadyForRetryAsync();
+    Task ResetRetryTimerAsync(Guid commandId);
 }

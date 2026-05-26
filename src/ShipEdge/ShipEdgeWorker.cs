@@ -98,19 +98,34 @@ public class ShipEdgeWorker : BackgroundService
 
                 foreach (var action in result.Actions)
                 {
-                    if (action == "trigger_fire_suppression")
-                        _logger.LogCritical("[{ShipId}] ACTUATOR: Fire suppression activated for {Location}", _shipId, reading.Location);
-                    if (action == "start_bilge_pump")
-                        _logger.LogCritical("[{ShipId}] ACTUATOR: Bilge pump started", _shipId);
-                    if (action == "reduce_engine_power")
-                        _logger.LogWarning("[{ShipId}] ACTUATOR: Engine power reduced", _shipId);
-                    if (action == "shutdown_reefer")
-                        _logger.LogCritical("[{ShipId}] ACTUATOR: Reefer emergency shutdown", _shipId);
+                    ExecuteActuator(action, reading);
                 }
             }
         }
 
         await PersistWithLockAsync();
+    }
+
+    private void ExecuteActuator(ActuatorCommand command, SensorReading reading)
+    {
+        switch (command)
+        {
+            case ActuatorCommand.EmitAlert:
+                _logger.LogWarning("[{ShipId}] ALERT triggered for {SensorType}", _shipId, reading.SensorType);
+                break;
+            case ActuatorCommand.TriggerFireSuppression:
+                _logger.LogCritical("[{ShipId}] ACTUATOR: Fire suppression activated for {Location}", _shipId, reading.Location);
+                break;
+            case ActuatorCommand.StartBilgePump:
+                _logger.LogCritical("[{ShipId}] ACTUATOR: Bilge pump started", _shipId);
+                break;
+            case ActuatorCommand.ReduceEnginePower:
+                _logger.LogWarning("[{ShipId}] ACTUATOR: Engine power reduced", _shipId);
+                break;
+            case ActuatorCommand.ShutdownReefer:
+                _logger.LogCritical("[{ShipId}] ACTUATOR: Reefer emergency shutdown", _shipId);
+                break;
+        }
     }
 
     private async Task PersistWithLockAsync()

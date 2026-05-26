@@ -10,7 +10,7 @@ public record Rule
     public RuleOperator Operator { get; init; }
     public double Threshold { get; init; }
     public Priority Priority { get; init; }
-    public List<string> Actions { get; init; } = new();
+    public List<ActuatorCommand> Actions { get; init; } = new();
 }
 
 public enum RuleOperator

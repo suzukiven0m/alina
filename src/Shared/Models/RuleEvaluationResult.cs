@@ -8,5 +8,5 @@ public record RuleEvaluationResult
     public string Message { get; init; } = string.Empty;
     public Priority Priority { get; init; }
     public SensorReading Reading { get; init; } = new();
-    public List<string> Actions { get; init; } = new();
+    public List<ActuatorCommand> Actions { get; init; } = new();
 }

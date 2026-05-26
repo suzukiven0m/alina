@@ -22,6 +22,8 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddHostedService<CommandRetryWorker>();
+
 var app = builder.Build();
 
 app.MapHealthChecks("/health");

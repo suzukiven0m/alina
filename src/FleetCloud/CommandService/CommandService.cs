@@ -115,4 +115,25 @@ public class CommandService : ICommandService
         await db.SaveChangesAsync();
     }
 
+    public async Task<List<PendingCommand>> GetCommandsReadyForRetryAsync()
+    {
+        using var db = new CommandDbContext(_dbPath);
+        var now = DateTimeOffset.UtcNow;
+        return await db.Commands
+            .Where(c => c.Status == CommandStatus.Issued && c.NextRetryAt <= now)
+            .OrderBy(c => c.NextRetryAt)
+            .ToListAsync();
+    }
+
+    public async Task ResetRetryTimerAsync(Guid commandId)
+    {
+        using var db = new CommandDbContext(_dbPath);
+        var cmd = await db.Commands.FindAsync(commandId);
+        if (cmd == null) return;
+
+        var backoffSeconds = Math.Min(300, Math.Pow(2, cmd.RetryCount) * 5);
+        cmd.NextRetryAt = DateTimeOffset.UtcNow.AddSeconds(backoffSeconds);
+        await db.SaveChangesAsync();
+    }
+
 }

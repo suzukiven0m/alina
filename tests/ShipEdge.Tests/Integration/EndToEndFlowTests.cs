@@ -98,7 +98,7 @@ public class EndToEndFlowTests : IDisposable
         var results = engine.Evaluate(reading);
 
         Assert.Single(results);
-        Assert.Contains("trigger_fire_suppression", results[0].Actions);
+        Assert.Contains(ActuatorCommand.TriggerFireSuppression, results[0].Actions);
         Assert.Equal(Priority.Critical, results[0].Priority);
     }
 

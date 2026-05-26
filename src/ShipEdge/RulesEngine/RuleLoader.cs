@@ -17,7 +17,7 @@ public class RuleLoader : IRuleLoader
                 Operator = RuleOperator.GreaterThan,
                 Threshold = 110,
                 Priority = Priority.Operational,
-                Actions = new List<string> { "emit_alert", "reduce_engine_power" }
+                Actions = new List<ActuatorCommand> { ActuatorCommand.EmitAlert, ActuatorCommand.ReduceEnginePower }
             },
             new Rule
             {
@@ -29,7 +29,7 @@ public class RuleLoader : IRuleLoader
                 Operator = RuleOperator.GreaterThan,
                 Threshold = 0.5,
                 Priority = Priority.Critical,
-                Actions = new List<string> { "trigger_fire_suppression", "emit_alert" }
+                Actions = new List<ActuatorCommand> { ActuatorCommand.TriggerFireSuppression, ActuatorCommand.EmitAlert }
             },
             new Rule
             {
@@ -40,7 +40,7 @@ public class RuleLoader : IRuleLoader
                 Operator = RuleOperator.GreaterThan,
                 Threshold = 80,
                 Priority = Priority.Critical,
-                Actions = new List<string> { "start_bilge_pump", "emit_alert" }
+                Actions = new List<ActuatorCommand> { ActuatorCommand.StartBilgePump, ActuatorCommand.EmitAlert }
             },
             new Rule
             {
@@ -51,7 +51,7 @@ public class RuleLoader : IRuleLoader
                 Operator = RuleOperator.GreaterThan,
                 Threshold = -15,
                 Priority = Priority.Critical,
-                Actions = new List<string> { "shutdown_reefer", "emit_alert" }
+                Actions = new List<ActuatorCommand> { ActuatorCommand.ShutdownReefer, ActuatorCommand.EmitAlert }
             }
         };
     }

@@ -24,7 +24,7 @@ public class RulesEngineTests
             Operator = RuleOperator.GreaterThan,
             Threshold = 110,
             Priority = Priority.Operational,
-            Actions = new List<string> { "emit_alert" }
+            Actions = new List<ActuatorCommand> { ActuatorCommand.EmitAlert }
         };
         _engine.LoadRules(new List<Rule> { rule });
 
@@ -39,7 +39,7 @@ public class RulesEngineTests
 
         Assert.Single(result);
         Assert.Equal("RULE-001", result[0].RuleId);
-        Assert.Equal("emit_alert", result[0].Actions[0]);
+        Assert.Equal(ActuatorCommand.EmitAlert, result[0].Actions[0]);
     }
 
     [Fact]
@@ -107,7 +107,7 @@ public class RulesEngineTests
             Operator = RuleOperator.GreaterThan,
             Threshold = 110,
             Priority = Priority.Operational,
-            Actions = new List<string> { "emit_alert" }
+            Actions = new List<ActuatorCommand> { ActuatorCommand.EmitAlert }
         };
         var rule2 = new Rule
         {
@@ -117,7 +117,7 @@ public class RulesEngineTests
             Operator = RuleOperator.GreaterThan,
             Threshold = 130,
             Priority = Priority.Critical,
-            Actions = new List<string> { "emit_alert", "shutdown_engine" }
+            Actions = new List<ActuatorCommand> { ActuatorCommand.EmitAlert, ActuatorCommand.ReduceEnginePower }
         };
         _engine.LoadRules(new List<Rule> { rule1, rule2 });
 
