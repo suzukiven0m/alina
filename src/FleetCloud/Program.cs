@@ -167,6 +167,16 @@ app.MapPost("/api/fleet", async (ShipInfo ship) =>
     return Results.Created($"/api/fleet/{ship.ShipId}", ship);
 });
 
+// Update ship position
+app.MapPost("/api/fleet/{shipId}/position", async (string shipId, PositionUpdateRequest request) =>
+{
+    if (string.IsNullOrWhiteSpace(shipId))
+        return Results.BadRequest("shipId is required");
+
+    await registry.UpdatePositionAsync(shipId, request.Latitude, request.Longitude, request.Speed);
+    return Results.Ok();
+});
+
 // Issue command to ship
 app.MapPost("/api/commands/{shipId}", async (string shipId, IssueCommandRequest request) =>
 {
@@ -234,3 +244,4 @@ app.Run();
 
 public record IssueCommandRequest(string CommandType, string Target, Dictionary<string, string>? Parameters);
 public record FailureRequest(string? Reason);
+public record PositionUpdateRequest(double Latitude, double Longitude, double? Speed);

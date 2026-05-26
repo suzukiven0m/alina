@@ -6,6 +6,10 @@ export interface ShipInfo {
   imoNumber?: string;
   status: string;
   lastSeen?: string;
+  latitude?: number;
+  longitude?: number;
+  speed?: number;
+  currentVoyageId?: string;
 }
 
 export interface EventSummary {

@@ -52,6 +52,17 @@ public class RuleLoader : IRuleLoader
                 Threshold = -15,
                 Priority = Priority.Critical,
                 Actions = new List<ActuatorCommand> { ActuatorCommand.ShutdownReefer, ActuatorCommand.EmitAlert }
+            },
+            new Rule
+            {
+                RuleId = "RULE-005",
+                Name = "Off Course Alert",
+                Description = "Ship has deviated from planned route corridor",
+                SensorType = SensorType.GpsPosition,
+                Operator = RuleOperator.GreaterThan,
+                Threshold = 10,
+                Priority = Priority.Operational,
+                Actions = new List<ActuatorCommand> { ActuatorCommand.EmitAlert }
             }
         };
     }

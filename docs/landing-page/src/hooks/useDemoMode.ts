@@ -15,9 +15,9 @@ export function useDemoMode() {
 }
 
 export const demoShips: ShipInfo[] = [
-  { shipId: 'MSC-001', name: 'MSC Alina', imoNumber: '9876543', status: 'Online', lastSeen: new Date().toISOString() },
-  { shipId: 'MSC-002', name: 'MSC Bravo', imoNumber: '9876544', status: 'Online', lastSeen: new Date().toISOString() },
-  { shipId: 'MSC-003', name: 'MSC Charlie', imoNumber: '9876545', status: 'Offline', lastSeen: new Date(Date.now() - 3600000).toISOString() },
+  { shipId: 'MSC-001', name: 'MSC Alina', imoNumber: '9074729', status: 'Online', lastSeen: new Date().toISOString(), latitude: 36.15, longitude: -5.35, speed: 18.5 },
+  { shipId: 'MSC-002', name: 'MSC Bravo', imoNumber: '9074731', status: 'Online', lastSeen: new Date().toISOString(), latitude: 40.45, longitude: -3.72, speed: 21.0 },
+  { shipId: 'MSC-003', name: 'MSC Charlie', imoNumber: '9074743', status: 'Offline', lastSeen: new Date(Date.now() - 3600000).toISOString(), latitude: 51.9, longitude: 4.5, speed: 0 },
 ];
 
 export const demoSummaries: Record<string, EventSummary> = {

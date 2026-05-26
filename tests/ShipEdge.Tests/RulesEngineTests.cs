@@ -140,7 +140,7 @@ public class RulesEngineTests
         var loader = new RuleLoader();
         var rules = loader.LoadDefaultRules();
 
-        Assert.Equal(4, rules.Count);
+        Assert.Equal(5, rules.Count);
         Assert.Contains(rules, r => r.RuleId == "RULE-001" && r.Name == "Engine Overheat");
         Assert.Contains(rules, r => r.RuleId == "RULE-002" && r.Name == "Fire Detection" && r.Location == "HOLD-3");
         Assert.Contains(rules, r => r.RuleId == "RULE-003" && r.Name == "Bilge High Water");

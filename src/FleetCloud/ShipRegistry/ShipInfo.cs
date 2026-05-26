@@ -8,5 +8,8 @@ public class ShipInfo
     public DateTimeOffset RegisteredAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset LastSeen { get; set; } = DateTimeOffset.MinValue;
     public string Status { get; set; } = "Offline";
-    public string? LastKnownPosition { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    public double? Speed { get; set; }
+    public string? CurrentVoyageId { get; set; }
 }

@@ -6,5 +6,6 @@ public interface IShipRegistryService
     Task<ShipInfo?> GetAsync(string shipId);
     Task UpdateLastSeenAsync(string shipId);
     Task UpdateStatusAsync(string shipId, string status);
+    Task UpdatePositionAsync(string shipId, double latitude, double longitude, double? speed = null);
     Task<List<ShipInfo>> GetAllAsync();
 }

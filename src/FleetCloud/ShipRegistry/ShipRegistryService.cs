@@ -70,6 +70,22 @@ public class ShipRegistryService : IShipRegistryService
         }
     }
 
+    public async Task UpdatePositionAsync(string shipId, double latitude, double longitude, double? speed = null)
+    {
+        using var db = CreateContext();
+
+        var ship = await db.Ships.FindAsync(shipId);
+        if (ship != null)
+        {
+            ship.Latitude = latitude;
+            ship.Longitude = longitude;
+            ship.Speed = speed;
+            ship.LastSeen = DateTimeOffset.UtcNow;
+            ship.Status = "Online";
+            await db.SaveChangesAsync();
+        }
+    }
+
     public async Task<List<ShipInfo>> GetAllAsync()
     {
         using var db = CreateContext();
