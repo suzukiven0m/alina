@@ -25,7 +25,7 @@ jobs:
         run: dotnet build --no-restore --configuration Release
 
       - name: Test
-        run: dotnet test --no-build --verbosity normal
+        run: dotnet test --no-build --configuration Release --verbosity normal
 
       - name: Docker Build FleetCloud
         run: docker build -f src/FleetCloud/Dockerfile -t cargoship-fleetcloud:latest .
