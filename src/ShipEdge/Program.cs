@@ -1,9 +1,12 @@
+using CargoShipMonitoring.Shared.Telemetry;
 using CargoShipMonitoring.ShipEdge;
 using CargoShipMonitoring.ShipEdge.PriorityEventQueue;
 using CargoShipMonitoring.ShipEdge.RulesEngine;
 using CargoShipMonitoring.ShipEdge.SatelliteGateway;
 using CargoShipMonitoring.ShipEdge.TelemetryCollector;
 using Microsoft.Extensions.Options;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using SatelliteGatewayClass = CargoShipMonitoring.ShipEdge.SatelliteGateway.SatelliteGateway;
 using CircuitBreakerClass = CargoShipMonitoring.ShipEdge.SatelliteGateway.CircuitBreaker;
 
@@ -12,6 +15,18 @@ var builder = Host.CreateApplicationBuilder(args);
 // Configuration
 builder.Services.Configure<ShipEdgeConfig>(
     builder.Configuration.GetSection(nameof(ShipEdgeConfig)));
+
+// Telemetry
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing =>
+    {
+        tracing
+            .AddSource("CargoShipMonitoring")
+            .SetResourceBuilder(ResourceBuilder.CreateDefault()
+                .AddService("ShipEdge", serviceVersion: "1.0.0"))
+            .AddHttpClientInstrumentation()
+            .AddConsoleExporter();
+    });
 
 // Core services
 builder.Services.AddSingleton<IPriorityEventQueue>(sp =>

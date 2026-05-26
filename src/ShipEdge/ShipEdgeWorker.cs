@@ -1,5 +1,8 @@
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using CargoShipMonitoring.Shared.Events;
 using CargoShipMonitoring.Shared.Models;
+using CargoShipMonitoring.Shared.Telemetry;
 using CargoShipMonitoring.ShipEdge.PriorityEventQueue;
 using CargoShipMonitoring.ShipEdge.RulesEngine;
 using CargoShipMonitoring.ShipEdge.SatelliteGateway;
@@ -10,6 +13,10 @@ namespace CargoShipMonitoring.ShipEdge;
 
 public class ShipEdgeWorker : BackgroundService
 {
+    private static readonly Counter<long> EventsQueued = TelemetryConfig.Meter.CreateCounter<long>("shipedge_events_queued_total", "events", "Total events queued");
+    private static readonly Counter<long> EventsTransmitted = TelemetryConfig.Meter.CreateCounter<long>("shipedge_events_transmitted_total", "events", "Total events successfully transmitted");
+    private static readonly Histogram<double> TransmitDuration = TelemetryConfig.Meter.CreateHistogram<double>("shipedge_transmit_duration_seconds", "s", "Event transmission duration");
+
     private readonly string _shipId;
     private readonly IPriorityEventQueue _queue;
     private readonly IRulesEngine _rulesEngine;
@@ -69,6 +76,9 @@ public class ShipEdgeWorker : BackgroundService
 
     private async Task CollectTelemetryAsync()
     {
+        using var activity = TelemetryConfig.Source.StartActivity("CollectTelemetry", ActivityKind.Internal);
+        activity?.SetTag("ship.id", _shipId);
+
         var readings = _sensorReader.ReadAllSensors();
 
         foreach (var reading in readings)
@@ -93,6 +103,7 @@ public class ShipEdgeWorker : BackgroundService
                     Message = result.Message
                 };
                 _queue.Enqueue(alert);
+                EventsQueued.Add(1, new KeyValuePair<string, object?>("priority", alert.Priority.ToString()));
 
                 _logger.LogWarning("[{ShipId}] ALERT: {RuleName} - {Message}", _shipId, result.RuleName, result.Message);
 
@@ -103,6 +114,7 @@ public class ShipEdgeWorker : BackgroundService
             }
         }
 
+        EventsQueued.Add(readings.Count, new KeyValuePair<string, object?>("priority", "Telemetry"));
         await PersistWithLockAsync();
     }
 
@@ -143,6 +155,9 @@ public class ShipEdgeWorker : BackgroundService
 
     private async Task ProcessQueueAsync()
     {
+        using var activity = TelemetryConfig.Source.StartActivity("TransmitEvents", ActivityKind.Client);
+        activity?.SetTag("ship.id", _shipId);
+
         if (!_satelliteGateway.CanTransmit())
             return;
 
@@ -158,22 +173,40 @@ public class ShipEdgeWorker : BackgroundService
                 stagedEvents.Add(evt);
         }
 
+        activity?.SetTag("event.count", stagedEvents.Count + criticalEvents.Count);
+        var stopwatch = Stopwatch.StartNew();
+
         var failedCritical = new List<ShipEvent>();
 
         // Send critical events individually and track failures
         foreach (var critical in criticalEvents)
         {
-            if (!await _satelliteGateway.TransmitAsync(critical))
+            if (await _satelliteGateway.TransmitAsync(critical))
+            {
+                EventsTransmitted.Add(1, new KeyValuePair<string, object?>("priority", "Critical"));
+            }
+            else
+            {
                 failedCritical.Add(critical);
+            }
         }
 
         // Send batch — if it fails, all staged events need retry
         var batchFailed = false;
         if (stagedEvents.Count > 0)
         {
-            if (!await _satelliteGateway.TransmitBatchAsync(stagedEvents))
+            if (await _satelliteGateway.TransmitBatchAsync(stagedEvents))
+            {
+                EventsTransmitted.Add(stagedEvents.Count, new KeyValuePair<string, object?>("priority", "Telemetry"));
+            }
+            else
+            {
                 batchFailed = true;
+            }
         }
+
+        stopwatch.Stop();
+        TransmitDuration.Record(stopwatch.Elapsed.TotalSeconds);
 
         // Re-enqueue only events that actually failed
         foreach (var failed in failedCritical)

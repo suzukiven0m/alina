@@ -2,6 +2,9 @@ using CargoShipMonitoring.FleetCloud.EventStore;
 using CargoShipMonitoring.FleetCloud.ShipRegistry;
 using CargoShipMonitoring.FleetCloud.CommandService;
 using CargoShipMonitoring.Shared.Events;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,7 +13,23 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton<IShipRegistryService>(_ => new ShipRegistryService("fleet_registry.db"));
 builder.Services.AddSingleton<ICommandService>(_ => new CommandService("fleet_commands.db"));
 builder.Services.AddSingleton<IEventStoreService>(_ => new EventStoreService("fleet_events.db"));
-builder.Services.AddHealthChecks();
+
+// Telemetry
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing =>
+    {
+        tracing
+            .AddSource("CargoShipMonitoring")
+            .SetResourceBuilder(ResourceBuilder.CreateDefault()
+                .AddService("FleetCloud", serviceVersion: "1.0.0"))
+            .AddAspNetCoreInstrumentation()
+            .AddConsoleExporter();
+    });
+
+// Health checks
+builder.Services.AddHealthChecks()
+    .AddCheck<DatabaseHealthCheck>("database")
+    .AddCheck<EventStoreHealthCheck>("eventstore");
 
 builder.Services.AddCors(options =>
 {
@@ -245,3 +264,53 @@ app.Run();
 public record IssueCommandRequest(string CommandType, string Target, Dictionary<string, string>? Parameters);
 public record FailureRequest(string? Reason);
 public record PositionUpdateRequest(double Latitude, double Longitude, double? Speed);
+
+public class DatabaseHealthCheck : IHealthCheck
+{
+    private readonly IShipRegistryService _registry;
+
+    public DatabaseHealthCheck(IShipRegistryService registry)
+    {
+        _registry = registry;
+    }
+
+    public async Task<HealthCheckResult> CheckHealthAsync(
+        HealthCheckContext context,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _registry.GetAllAsync();
+            return HealthCheckResult.Healthy();
+        }
+        catch (Exception ex)
+        {
+            return HealthCheckResult.Unhealthy("Database connectivity failed", ex);
+        }
+    }
+}
+
+public class EventStoreHealthCheck : IHealthCheck
+{
+    private readonly IEventStoreService _eventStore;
+
+    public EventStoreHealthCheck(IEventStoreService eventStore)
+    {
+        _eventStore = eventStore;
+    }
+
+    public async Task<HealthCheckResult> CheckHealthAsync(
+        HealthCheckContext context,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _eventStore.GetEventsForShipAsync("health-check", 1);
+            return HealthCheckResult.Healthy();
+        }
+        catch (Exception ex)
+        {
+            return HealthCheckResult.Unhealthy("Event store connectivity failed", ex);
+        }
+    }
+}
