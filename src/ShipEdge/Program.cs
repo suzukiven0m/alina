@@ -24,7 +24,7 @@ builder.Services.AddSingleton<IRuleLoader, RuleLoader>();
 builder.Services.AddSingleton<ISensorReader>(sp =>
 {
     var config = sp.GetRequiredService<IOptions<ShipEdgeConfig>>().Value;
-    return new SensorReader(config.ShipId);
+    return new RealisticSensorReader(config.ShipId);
 });
 builder.Services.AddSingleton<SatelliteGatewayClass>(sp =>
 {
