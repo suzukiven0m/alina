@@ -43,7 +43,20 @@ public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
     {
         var client = _factory.CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/events/MSC-001", new { temperature = 95 });
+        var payload = new Dictionary<string, object>
+        {
+            ["$eventType"] = "sensor.reading",
+            ["shipId"] = "MSC-001",
+            ["eventType"] = "sensor.reading",
+            ["reading"] = new Dictionary<string, object>
+            {
+                ["sensorId"] = "TEMP-01",
+                ["sensorType"] = 1, // EngineTemperature = 1
+                ["value"] = 95.0,
+                ["unit"] = "C"
+            }
+        };
+        var response = await client.PostAsJsonAsync("/api/events/MSC-001", payload);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
