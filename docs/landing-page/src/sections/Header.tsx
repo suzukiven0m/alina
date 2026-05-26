@@ -26,6 +26,7 @@ export default function Header() {
         >
           View on GitHub
         </a>
+        <a href="#dashboard">Dashboard</a>
         <a href="#architecture">Architecture</a>
         <a href="#getting-started">Getting Started</a>
       </div>

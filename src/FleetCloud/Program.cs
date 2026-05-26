@@ -1,5 +1,7 @@
+using CargoShipMonitoring.FleetCloud.EventStore;
 using CargoShipMonitoring.FleetCloud.ShipRegistry;
 using CargoShipMonitoring.FleetCloud.CommandService;
+using CargoShipMonitoring.Shared.Events;
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -7,14 +9,27 @@ var builder = WebApplication.CreateBuilder(args);
 // Register services
 builder.Services.AddSingleton<IShipRegistryService>(_ => new ShipRegistryService("fleet_registry.db"));
 builder.Services.AddSingleton<ICommandService>(_ => new CommandService("fleet_commands.db"));
+builder.Services.AddSingleton<IEventStoreService>(_ => new EventStoreService("fleet_events.db"));
 builder.Services.AddHealthChecks();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("LandingPage", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173", "https://suzukiven0m.github.io")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
 
 var app = builder.Build();
 
 app.MapHealthChecks("/health");
+app.UseCors("LandingPage");
 
 var registry = app.Services.GetRequiredService<IShipRegistryService>();
 var commandService = app.Services.GetRequiredService<ICommandService>();
+var eventStore = app.Services.GetRequiredService<IEventStoreService>();
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
 
 // Receive events from ship
@@ -26,23 +41,33 @@ app.MapPost("/api/events/{shipId}", async (string shipId, HttpContext context) =
     if (context.Request.ContentLength > 1024 * 1024) // 1MB limit
         return Results.BadRequest("Event payload exceeds 1MB limit");
 
-    var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
+    using var reader = new StreamReader(context.Request.Body);
+    var body = await reader.ReadToEndAsync();
     if (string.IsNullOrWhiteSpace(body))
         return Results.BadRequest("Event body is required");
 
-    JsonElement evt;
+    ShipEvent? evt;
     try
     {
-        evt = JsonSerializer.Deserialize<JsonElement>(body);
+        evt = JsonSerializer.Deserialize<ShipEvent>(body, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
     }
-    catch (JsonException)
+    catch (Exception ex)
     {
-        return Results.BadRequest("Invalid JSON");
+        logger.LogWarning(ex, "Failed to deserialize event from {ShipId}", shipId);
+        return Results.BadRequest("Invalid JSON or unknown event type");
     }
+
+    if (evt == null)
+        return Results.BadRequest("Event could not be deserialized");
 
     await registry.UpdateLastSeenAsync(shipId);
+    await eventStore.StoreAsync(evt);
 
-    logger.LogInformation("[Cloud] Event from {ShipId}: {Event}", shipId, evt);
+    logger.LogInformation("[Cloud] Event from {ShipId}: {EventType} ({Priority})",
+        shipId, evt.EventType, evt.Priority);
     return Results.Ok();
 });
 
@@ -55,24 +80,60 @@ app.MapPost("/api/events/{shipId}/batch", async (string shipId, HttpContext cont
     if (context.Request.ContentLength > 10 * 1024 * 1024) // 10MB limit for batches
         return Results.BadRequest("Batch payload exceeds 10MB limit");
 
-    var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
+    using var reader = new StreamReader(context.Request.Body);
+    var body = await reader.ReadToEndAsync();
     if (string.IsNullOrWhiteSpace(body))
         return Results.BadRequest("Batch body is required");
 
-    List<JsonElement>? events;
+    List<ShipEvent>? events;
     try
     {
-        events = JsonSerializer.Deserialize<List<JsonElement>>(body);
+        events = JsonSerializer.Deserialize<List<ShipEvent>>(body, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
     }
-    catch (JsonException)
+    catch (Exception ex)
     {
+        logger.LogWarning(ex, "Failed to deserialize batch from {ShipId}", shipId);
         return Results.BadRequest("Invalid JSON array");
     }
 
-    await registry.UpdateLastSeenAsync(shipId);
+    if (events == null || events.Count == 0)
+        return Results.BadRequest("Empty batch");
 
-    logger.LogInformation("[Cloud] Batch of {Count} events from {ShipId}", events?.Count ?? 0, shipId);
+    await registry.UpdateLastSeenAsync(shipId);
+    await eventStore.StoreBatchAsync(events);
+
+    logger.LogInformation("[Cloud] Batch of {Count} events from {ShipId}", events.Count, shipId);
     return Results.Ok();
+});
+
+// Get recent events for a ship
+app.MapGet("/api/events/{shipId}", async (string shipId, int? limit) =>
+{
+    if (string.IsNullOrWhiteSpace(shipId))
+        return Results.BadRequest("shipId is required");
+
+    var events = await eventStore.GetEventsForShipAsync(shipId, limit ?? 100);
+    return Results.Ok(events);
+});
+
+// Get event summary for a ship
+app.MapGet("/api/events/{shipId}/summary", async (string shipId) =>
+{
+    if (string.IsNullOrWhiteSpace(shipId))
+        return Results.BadRequest("shipId is required");
+
+    var summary = await eventStore.GetSummaryForShipAsync(shipId);
+    return Results.Ok(summary);
+});
+
+// Get critical events across fleet
+app.MapGet("/api/events/critical", async (int? limit) =>
+{
+    var events = await eventStore.GetEventsByPriorityAsync("Critical", limit ?? 50);
+    return Results.Ok(events);
 });
 
 // Get fleet status
