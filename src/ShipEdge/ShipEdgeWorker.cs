@@ -61,6 +61,12 @@ public class ShipEdgeWorker : BackgroundService
         await base.StopAsync(cancellationToken);
     }
 
+    public override void Dispose()
+    {
+        _persistLock.Dispose();
+        base.Dispose();
+    }
+
     private async Task CollectTelemetryAsync()
     {
         var readings = _sensorReader.ReadAllSensors();

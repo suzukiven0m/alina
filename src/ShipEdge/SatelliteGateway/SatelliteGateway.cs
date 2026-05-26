@@ -52,7 +52,7 @@ public class SatelliteGateway : ISatelliteGateway
             _circuitBreaker.RecordFailure();
             return false;
         }
-        catch (Exception)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _circuitBreaker.RecordFailure();
             return false;
@@ -86,7 +86,7 @@ public class SatelliteGateway : ISatelliteGateway
             _circuitBreaker.RecordFailure();
             return false;
         }
-        catch (Exception)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _circuitBreaker.RecordFailure();
             return false;
