@@ -213,7 +213,8 @@ app.MapPost("/api/fleet", async (RegisterShipRequest ship) =>
         return Results.BadRequest("Invalid IMO number");
 
     await registry.RegisterAsync(ship.ShipId, ship.Name, ship.IMONumber);
-    return Results.Created($"/api/fleet/{ship.ShipId}", ship);
+    var created = await registry.GetAsync(ship.ShipId);
+    return Results.Created($"/api/fleet/{ship.ShipId}", created);
 }).RequireRateLimiting("fleet");
 
 // Update ship position
@@ -225,6 +226,8 @@ app.MapPost("/api/fleet/{shipId}/position", async (string shipId, PositionUpdate
         return Results.BadRequest("Latitude must be between -90 and 90");
     if (request.Longitude is < -180 or > 180)
         return Results.BadRequest("Longitude must be between -180 and 180");
+    if (request.Speed is < 0)
+        return Results.BadRequest("Speed must be non-negative");
 
     await registry.UpdatePositionAsync(shipId, request.Latitude, request.Longitude, request.Speed);
     return Results.Ok();
