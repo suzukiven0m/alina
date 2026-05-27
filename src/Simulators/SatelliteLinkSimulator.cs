@@ -38,6 +38,11 @@ public class SatelliteLinkSimulator : IDisposable
     public void Dispose()
     {
         _cts?.Cancel();
+        try
+        {
+            _simulationTask?.Wait(TimeSpan.FromSeconds(5));
+        }
+        catch (AggregateException) { }
         _cts?.Dispose();
     }
 

@@ -1,6 +1,27 @@
-@CargoShipMonitoring.FleetCloud_HostAddress = http://localhost:5269
+@CargoShipMonitoring.FleetCloud_HostAddress = http://localhost:5000
 
-GET {{CargoShipMonitoring.FleetCloud_HostAddress}}/weatherforecast/
+GET {{CargoShipMonitoring.FleetCloud_HostAddress}}/health
+Accept: application/json
+
+###
+
+GET {{CargoShipMonitoring.FleetCloud_HostAddress}}/api/fleet
+Accept: application/json
+
+###
+
+POST {{CargoShipMonitoring.FleetCloud_HostAddress}}/api/fleet
+Content-Type: application/json
+
+{
+  "shipId": "MSC-001",
+  "name": "Test Ship",
+  "imoNumber": "9074729"
+}
+
+###
+
+GET {{CargoShipMonitoring.FleetCloud_HostAddress}}/api/commands/deadletter
 Accept: application/json
 
 ###

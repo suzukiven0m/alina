@@ -79,4 +79,42 @@ public class CommandServiceTests : IDisposable
         var pending = await service.GetPendingForShipAsync("MSC-001");
         Assert.Equal(2, pending.Count);
     }
+
+    [Fact]
+    public async Task RecordDelivered_Updates_Status()
+    {
+        var service = new CommandService.CommandService(_dbPath);
+        var cmdId = await service.IssueAsync("MSC-001", "test", "target", new());
+
+        await service.RecordDeliveredAsync(cmdId);
+
+        var cmd = await service.GetAsync(cmdId);
+        Assert.Equal(CommandStatus.Delivered, cmd!.Status);
+    }
+
+    [Fact]
+    public async Task RecordRejected_Updates_Status()
+    {
+        var service = new CommandService.CommandService(_dbPath);
+        var cmdId = await service.IssueAsync("MSC-001", "test", "target", new());
+
+        await service.RecordRejectedAsync(cmdId, "Invalid target");
+
+        var cmd = await service.GetAsync(cmdId);
+        Assert.Equal(CommandStatus.Rejected, cmd!.Status);
+        Assert.Equal("Invalid target", cmd.FailureReason);
+    }
+
+    [Fact]
+    public async Task GetPendingCommands_Respects_NextRetryAt()
+    {
+        var service = new CommandService.CommandService(_dbPath);
+        var cmdId = await service.IssueAsync("MSC-001", "test", "target", new());
+
+        // After failure, NextRetryAt is set to the future
+        await service.RecordFailureAsync(cmdId);
+
+        var pending = await service.GetPendingForShipAsync("MSC-001");
+        Assert.Empty(pending);
+    }
 }

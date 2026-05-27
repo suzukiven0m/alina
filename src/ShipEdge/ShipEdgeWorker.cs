@@ -65,7 +65,14 @@ public class ShipEdgeWorker : BackgroundService
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("[{ShipId}] Ship edge stopping. Persisting queue...", _shipId);
-        await PersistWithLockAsync();
+        try
+        {
+            await PersistWithLockAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("[{ShipId}] Queue persistence was canceled during shutdown", _shipId);
+        }
         await base.StopAsync(cancellationToken);
     }
 

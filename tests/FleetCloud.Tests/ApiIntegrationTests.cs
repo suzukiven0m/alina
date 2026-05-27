@@ -143,6 +143,35 @@ public class ApiIntegrationTests : IDisposable
     }
 
     [Fact]
+    public async Task Command_Delivered_Updates_Status()
+    {
+        var client = _factory.CreateClient();
+        var shipId = $"MSC-{Guid.NewGuid()}";
+
+        await client.PostAsJsonAsync("/api/fleet", new ShipInfo
+        {
+            ShipId = shipId,
+            Name = "Test Ship"
+        });
+
+        var issueResponse = await client.PostAsJsonAsync($"/api/commands/{shipId}", new
+        {
+            CommandType = "adjust_course",
+            Target = "engine",
+            Parameters = new Dictionary<string, string>()
+        });
+        var issueResult = await issueResponse.Content.ReadFromJsonAsync<Dictionary<string, object>>();
+        var cmdId = Guid.Parse(issueResult!["commandId"].ToString()!);
+
+        var deliveredResponse = await client.PostAsync($"/api/commands/{cmdId}/delivered", null);
+        Assert.Equal(HttpStatusCode.OK, deliveredResponse.StatusCode);
+
+        var pending = await client.GetAsync($"/api/commands/{shipId}/pending");
+        var commands = await pending.Content.ReadFromJsonAsync<List<PendingCommand>>();
+        Assert.Empty(commands);
+    }
+
+    [Fact]
     public async Task Post_Large_Event_Returns_BadRequest()
     {
         var client = _factory.CreateClient();

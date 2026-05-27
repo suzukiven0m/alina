@@ -28,13 +28,13 @@ public class CommandDbContext : DbContext
             entity.HasIndex(e => e.NextRetryAt);
             entity.Property(e => e.CreatedAt).HasConversion(
                 v => v.UtcDateTime,
-                v => new DateTimeOffset(v));
+                v => new DateTimeOffset(v, TimeSpan.Zero));
             entity.Property(e => e.LastAttemptAt).HasConversion(
                 v => v.HasValue ? v.Value.UtcDateTime : (DateTime?)null,
-                v => v.HasValue ? new DateTimeOffset(v.Value) : (DateTimeOffset?)null);
+                v => v.HasValue ? new DateTimeOffset(v.Value, TimeSpan.Zero) : (DateTimeOffset?)null);
             entity.Property(e => e.NextRetryAt).HasConversion(
                 v => v.HasValue ? v.Value.UtcDateTime : (DateTime?)null,
-                v => v.HasValue ? new DateTimeOffset(v.Value) : (DateTimeOffset?)null);
+                v => v.HasValue ? new DateTimeOffset(v.Value, TimeSpan.Zero) : (DateTimeOffset?)null);
         });
     }
 }
