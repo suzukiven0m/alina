@@ -75,11 +75,10 @@ app.MapPost("/api/events/{shipId}", async (string shipId, HttpContext context) =
     if (string.IsNullOrWhiteSpace(shipId))
         return Results.BadRequest("shipId is required");
 
-    if (context.Request.ContentLength > 1024 * 1024) // 1MB limit
-        return Results.BadRequest("Event payload exceeds 1MB limit");
-
     using var reader = new StreamReader(context.Request.Body);
     var body = await reader.ReadToEndAsync();
+    if (body.Length > 1024 * 1024) // 1MB limit
+        return Results.BadRequest("Event payload exceeds 1MB limit");
     if (string.IsNullOrWhiteSpace(body))
         return Results.BadRequest("Event body is required");
 
@@ -114,11 +113,10 @@ app.MapPost("/api/events/{shipId}/batch", async (string shipId, HttpContext cont
     if (string.IsNullOrWhiteSpace(shipId))
         return Results.BadRequest("shipId is required");
 
-    if (context.Request.ContentLength > 10 * 1024 * 1024) // 10MB limit for batches
-        return Results.BadRequest("Batch payload exceeds 10MB limit");
-
     using var reader = new StreamReader(context.Request.Body);
     var body = await reader.ReadToEndAsync();
+    if (body.Length > 10 * 1024 * 1024) // 10MB limit for batches
+        return Results.BadRequest("Batch payload exceeds 10MB limit");
     if (string.IsNullOrWhiteSpace(body))
         return Results.BadRequest("Batch body is required");
 

@@ -18,6 +18,7 @@ public class PriorityEventQueue : IPriorityEventQueue
     private ConcurrentDictionary<Guid, byte> _pendingDeletes = new();
     private int _dbInitialized;
     private static readonly ConcurrentDictionary<string, bool> _walInitialized = new();
+    private readonly object _enqueueLock = new();
 
     public int Count => Interlocked.CompareExchange(ref _count, 0, 0);
     public int MaxSize { get; }
@@ -35,35 +36,34 @@ public class PriorityEventQueue : IPriorityEventQueue
 
     public void Enqueue(ShipEvent evt)
     {
-        // Priority-aware eviction: drop telemetry first, then operational. Never drop critical.
-        while (true)
+        lock (_enqueueLock)
         {
-            var currentCount = Interlocked.CompareExchange(ref _count, 0, 0);
-            if (currentCount < MaxSize)
-                break;
+            // Priority-aware eviction: drop telemetry first, then operational. Never drop critical.
+            while (_count >= MaxSize)
+            {
+                if (_telemetryQueue.TryDequeue(out _))
+                {
+                    _count--;
+                    continue;
+                }
+                if (_operationalQueue.TryDequeue(out _))
+                {
+                    _count--;
+                    continue;
+                }
+                break; // Only critical events left
+            }
 
-            if (_telemetryQueue.TryDequeue(out _))
+            var queue = evt.Priority switch
             {
-                Interlocked.Decrement(ref _count);
-                continue;
-            }
-            if (_operationalQueue.TryDequeue(out _))
-            {
-                Interlocked.Decrement(ref _count);
-                continue;
-            }
-            break; // Only critical events left
+                Priority.Critical => _criticalQueue,
+                Priority.Operational => _operationalQueue,
+                _ => _telemetryQueue
+            };
+
+            queue.Enqueue(evt);
+            _count++;
         }
-
-        var queue = evt.Priority switch
-        {
-            Priority.Critical => _criticalQueue,
-            Priority.Operational => _operationalQueue,
-            _ => _telemetryQueue
-        };
-
-        queue.Enqueue(evt);
-        Interlocked.Increment(ref _count);
 
         _pendingInserts[evt.EventId] = evt;
         _pendingDeletes.TryRemove(evt.EventId, out _);
@@ -71,29 +71,32 @@ public class PriorityEventQueue : IPriorityEventQueue
 
     public ShipEvent? Dequeue()
     {
-        if (_criticalQueue.TryDequeue(out var critical))
+        lock (_enqueueLock)
         {
-            Interlocked.Decrement(ref _count);
-            _pendingDeletes[critical.EventId] = 1;
-            _pendingInserts.TryRemove(critical.EventId, out _);
-            return critical;
-        }
-        if (_operationalQueue.TryDequeue(out var operational))
-        {
-            Interlocked.Decrement(ref _count);
-            _pendingDeletes[operational.EventId] = 1;
-            _pendingInserts.TryRemove(operational.EventId, out _);
-            return operational;
-        }
-        if (_telemetryQueue.TryDequeue(out var telemetry))
-        {
-            Interlocked.Decrement(ref _count);
-            _pendingDeletes[telemetry.EventId] = 1;
-            _pendingInserts.TryRemove(telemetry.EventId, out _);
-            return telemetry;
-        }
+            if (_criticalQueue.TryDequeue(out var critical))
+            {
+                _count--;
+                _pendingDeletes[critical.EventId] = 1;
+                _pendingInserts.TryRemove(critical.EventId, out _);
+                return critical;
+            }
+            if (_operationalQueue.TryDequeue(out var operational))
+            {
+                _count--;
+                _pendingDeletes[operational.EventId] = 1;
+                _pendingInserts.TryRemove(operational.EventId, out _);
+                return operational;
+            }
+            if (_telemetryQueue.TryDequeue(out var telemetry))
+            {
+                _count--;
+                _pendingDeletes[telemetry.EventId] = 1;
+                _pendingInserts.TryRemove(telemetry.EventId, out _);
+                return telemetry;
+            }
 
-        return null;
+            return null;
+        }
     }
 
     public async Task PersistAsync()
