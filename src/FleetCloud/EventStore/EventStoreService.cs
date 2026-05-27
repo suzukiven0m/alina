@@ -112,15 +112,20 @@ public class EventStoreService : IEventStoreService
     public async Task<EventSummary> GetSummaryForShipAsync(string shipId)
     {
         using var db = CreateContext();
-        var query = db.Events.Where(e => e.ShipId == shipId);
+
+        var events = await db.Events
+            .Where(e => e.ShipId == shipId)
+            .Select(e => new { e.Priority, e.Timestamp })
+            .ToListAsync();
+
         return new EventSummary
         {
             ShipId = shipId,
-            TotalEvents = await query.CountAsync(),
-            CriticalEvents = await query.CountAsync(e => e.Priority == "Critical"),
-            OperationalEvents = await query.CountAsync(e => e.Priority == "Operational"),
-            TelemetryEvents = await query.CountAsync(e => e.Priority == "Telemetry"),
-            LastEventAt = await query.MaxAsync(e => (DateTime?)e.Timestamp)
+            TotalEvents = events.Count,
+            CriticalEvents = events.Count(e => e.Priority == "Critical"),
+            OperationalEvents = events.Count(e => e.Priority == "Operational"),
+            TelemetryEvents = events.Count(e => e.Priority == "Telemetry"),
+            LastEventAt = events.Count > 0 ? events.Max(e => e.Timestamp) : null
         };
     }
 

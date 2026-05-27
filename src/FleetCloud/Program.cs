@@ -27,6 +27,20 @@ builder.Services.AddRateLimiter(options =>
         limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
         limiter.QueueLimit = 10;
     });
+    options.AddFixedWindowLimiter("commands", limiter =>
+    {
+        limiter.PermitLimit = 60;
+        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        limiter.QueueLimit = 5;
+    });
+    options.AddFixedWindowLimiter("fleet", limiter =>
+    {
+        limiter.PermitLimit = 30;
+        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        limiter.QueueLimit = 5;
+    });
 });
 
 // Telemetry
@@ -200,7 +214,7 @@ app.MapPost("/api/fleet", async (RegisterShipRequest ship) =>
 
     await registry.RegisterAsync(ship.ShipId, ship.Name, ship.IMONumber);
     return Results.Created($"/api/fleet/{ship.ShipId}", ship);
-});
+}).RequireRateLimiting("fleet");
 
 // Update ship position
 app.MapPost("/api/fleet/{shipId}/position", async (string shipId, PositionUpdateRequest request) =>
@@ -214,7 +228,7 @@ app.MapPost("/api/fleet/{shipId}/position", async (string shipId, PositionUpdate
 
     await registry.UpdatePositionAsync(shipId, request.Latitude, request.Longitude, request.Speed);
     return Results.Ok();
-});
+}).RequireRateLimiting("fleet");
 
 // Issue command to ship
 app.MapPost("/api/commands/{shipId}", async (string shipId, IssueCommandRequest request) =>
@@ -228,7 +242,7 @@ app.MapPost("/api/commands/{shipId}", async (string shipId, IssueCommandRequest 
 
     var cmdId = await commandService.IssueAsync(shipId, request.CommandType, request.Target, request.Parameters ?? new());
     return Results.Accepted($"/api/commands/{cmdId}", new { CommandId = cmdId });
-});
+}).RequireRateLimiting("commands");
 
 // Get commands for ship
 app.MapGet("/api/commands/{shipId}", async (string shipId) =>
@@ -238,14 +252,14 @@ app.MapGet("/api/commands/{shipId}", async (string shipId) =>
 
     var commands = await commandService.GetPendingForShipAsync(shipId);
     return Results.Ok(commands);
-});
+}).RequireRateLimiting("commands");
 
 // Get dead letter queue
 app.MapGet("/api/commands/deadletter", async () =>
 {
     var commands = await commandService.GetDeadLetterCommandsAsync();
     return Results.Ok(commands);
-});
+}).RequireRateLimiting("commands");
 
 // Ship acknowledges command receipt
 app.MapPost("/api/commands/{commandId}/delivered", async (Guid commandId) =>
@@ -254,7 +268,7 @@ app.MapPost("/api/commands/{commandId}/delivered", async (Guid commandId) =>
     if (cmd == null) return Results.NotFound();
     await commandService.RecordDeliveredAsync(commandId);
     return Results.Ok();
-});
+}).RequireRateLimiting("commands");
 
 // Ship reports command execution
 app.MapPost("/api/commands/{commandId}/executed", async (Guid commandId, ShipCommandReport report) =>
@@ -265,7 +279,7 @@ app.MapPost("/api/commands/{commandId}/executed", async (Guid commandId, ShipCom
         return Results.Forbid();
     await commandService.RecordSuccessAsync(commandId);
     return Results.Ok();
-});
+}).RequireRateLimiting("commands");
 
 // Ship reports command failure
 app.MapPost("/api/commands/{commandId}/failed", async (Guid commandId, ShipCommandReport report) =>
@@ -276,7 +290,7 @@ app.MapPost("/api/commands/{commandId}/failed", async (Guid commandId, ShipComma
         return Results.Forbid();
     await commandService.RecordFailureAsync(commandId, report.Reason);
     return Results.Ok();
-});
+}).RequireRateLimiting("commands");
 
 // Ship polls for pending commands
 app.MapGet("/api/commands/{shipId}/pending", async (string shipId) =>
@@ -286,7 +300,7 @@ app.MapGet("/api/commands/{shipId}/pending", async (string shipId) =>
 
     var commands = await commandService.GetPendingForShipAsync(shipId);
     return Results.Ok(commands);
-});
+}).RequireRateLimiting("commands");
 
 app.Run();
 

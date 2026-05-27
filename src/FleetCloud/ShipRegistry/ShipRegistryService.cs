@@ -63,12 +63,14 @@ public class ShipRegistryService : IShipRegistryService
         using var db = CreateContext();
 
         var ship = await db.Ships.FindAsync(shipId);
-        if (ship != null)
+        if (ship == null)
         {
-            ship.LastSeen = DateTimeOffset.UtcNow;
-            ship.Status = "Online";
-            await db.SaveChangesAsync();
+            ship = new ShipInfo { ShipId = shipId, Name = shipId };
+            db.Ships.Add(ship);
         }
+        ship.LastSeen = DateTimeOffset.UtcNow;
+        ship.Status = "Online";
+        await db.SaveChangesAsync();
     }
 
     public async Task UpdateStatusAsync(string shipId, string status)
@@ -76,13 +78,15 @@ public class ShipRegistryService : IShipRegistryService
         using var db = CreateContext();
 
         var ship = await db.Ships.FindAsync(shipId);
-        if (ship != null)
+        if (ship == null)
         {
-            ship.Status = status;
-            if (status == "Offline")
-                ship.LastSeen = DateTimeOffset.UtcNow;
-            await db.SaveChangesAsync();
+            ship = new ShipInfo { ShipId = shipId, Name = shipId };
+            db.Ships.Add(ship);
         }
+        ship.Status = status;
+        if (status == "Offline")
+            ship.LastSeen = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
     }
 
     public async Task UpdatePositionAsync(string shipId, double latitude, double longitude, double? speed = null)
@@ -90,15 +94,17 @@ public class ShipRegistryService : IShipRegistryService
         using var db = CreateContext();
 
         var ship = await db.Ships.FindAsync(shipId);
-        if (ship != null)
+        if (ship == null)
         {
-            ship.Latitude = latitude;
-            ship.Longitude = longitude;
-            ship.Speed = speed;
-            ship.LastSeen = DateTimeOffset.UtcNow;
-            ship.Status = "Online";
-            await db.SaveChangesAsync();
+            ship = new ShipInfo { ShipId = shipId, Name = shipId };
+            db.Ships.Add(ship);
         }
+        ship.Latitude = latitude;
+        ship.Longitude = longitude;
+        ship.Speed = speed;
+        ship.LastSeen = DateTimeOffset.UtcNow;
+        ship.Status = "Online";
+        await db.SaveChangesAsync();
     }
 
     public async Task<List<ShipInfo>> GetAllAsync()
