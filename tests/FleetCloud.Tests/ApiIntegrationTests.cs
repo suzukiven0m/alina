@@ -4,17 +4,21 @@ using System.Text.Json;
 using CargoShipMonitoring.FleetCloud.CommandService;
 using CargoShipMonitoring.FleetCloud.ShipRegistry;
 using CargoShipMonitoring.Shared.Models;
-using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace CargoShipMonitoring.FleetCloud.Tests;
 
-public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public class ApiIntegrationTests : IDisposable
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly CustomWebApplicationFactory _factory;
 
-    public ApiIntegrationTests(WebApplicationFactory<Program> factory)
+    public ApiIntegrationTests()
     {
-        _factory = factory;
+        _factory = new CustomWebApplicationFactory();
+    }
+
+    public void Dispose()
+    {
+        _factory.Dispose();
     }
 
     [Fact]

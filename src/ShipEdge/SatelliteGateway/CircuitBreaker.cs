@@ -58,11 +58,11 @@ public class CircuitBreaker
 
     public void RecordFailure()
     {
-        var newCount = Interlocked.Increment(ref _failureCount);
         lock (_lock)
         {
+            _failureCount++;
             _lastFailureTime = _timeProvider.GetUtcNow();
-            if (newCount >= _failureThreshold)
+            if (_failureCount >= _failureThreshold)
                 _state = CircuitBreakerState.Open;
         }
     }

@@ -1,5 +1,6 @@
 using CargoShipMonitoring.Shared.Events;
 using CargoShipMonitoring.Shared.Models;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
 using System.Text.Json;
@@ -13,9 +14,10 @@ public class PriorityEventQueue : IPriorityEventQueue
     private readonly ConcurrentQueue<ShipEvent> _telemetryQueue = new();
     private int _count;
     private readonly string? _dbPath;
-    private readonly ConcurrentDictionary<Guid, ShipEvent> _pendingInserts = new();
-    private readonly ConcurrentDictionary<Guid, byte> _pendingDeletes = new();
+    private ConcurrentDictionary<Guid, ShipEvent> _pendingInserts = new();
+    private ConcurrentDictionary<Guid, byte> _pendingDeletes = new();
     private int _dbInitialized;
+    private static readonly ConcurrentDictionary<string, bool> _walInitialized = new();
 
     public int Count => Interlocked.CompareExchange(ref _count, 0, 0);
     public int MaxSize { get; }
@@ -102,8 +104,12 @@ public class PriorityEventQueue : IPriorityEventQueue
         using var db = new EventBufferDbContext(_dbPath);
         await EnsureDbInitializedAsync(db);
 
+        // Snapshot dictionaries to avoid racing with Enqueue/Dequeue
+        var inserts = Interlocked.Exchange(ref _pendingInserts, new ConcurrentDictionary<Guid, ShipEvent>());
+        var deletes = Interlocked.Exchange(ref _pendingDeletes, new ConcurrentDictionary<Guid, byte>());
+
         // Only delete events that were dequeued since last persist
-        foreach (var id in _pendingDeletes.Keys)
+        foreach (var id in deletes.Keys)
         {
             var existing = await db.Events.FindAsync(id);
             if (existing != null)
@@ -111,7 +117,7 @@ public class PriorityEventQueue : IPriorityEventQueue
         }
 
         // Only insert events that were enqueued since last persist
-        foreach (var evt in _pendingInserts.Values)
+        foreach (var evt in inserts.Values)
         {
             var existing = await db.Events.FindAsync(evt.EventId);
             if (existing == null)
@@ -129,9 +135,6 @@ public class PriorityEventQueue : IPriorityEventQueue
         }
 
         await db.SaveChangesAsync();
-
-        _pendingDeletes.Clear();
-        _pendingInserts.Clear();
     }
 
     public async Task RestoreAsync()
@@ -183,7 +186,20 @@ public class PriorityEventQueue : IPriorityEventQueue
         if (Interlocked.CompareExchange(ref _dbInitialized, 1, 0) == 0)
         {
             await db.Database.EnsureCreatedAsync();
+            if (_dbPath != null)
+                EnsureWalMode(_dbPath);
         }
+    }
+
+    private static void EnsureWalMode(string dbPath)
+    {
+        if (_walInitialized.ContainsKey(dbPath)) return;
+        using var connection = new SqliteConnection($"Data Source={dbPath}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "PRAGMA journal_mode=WAL;";
+        command.ExecuteNonQuery();
+        _walInitialized[dbPath] = true;
     }
 
     private static ShipEvent? DeserializeOperational(string eventType, string json)

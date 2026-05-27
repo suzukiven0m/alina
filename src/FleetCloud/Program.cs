@@ -2,10 +2,13 @@ using CargoShipMonitoring.FleetCloud.EventStore;
 using CargoShipMonitoring.FleetCloud.ShipRegistry;
 using CargoShipMonitoring.FleetCloud.CommandService;
 using CargoShipMonitoring.Shared.Events;
+using CargoShipMonitoring.Shared.Models;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using System.Text.Json;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +16,18 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton<IShipRegistryService>(_ => new ShipRegistryService("fleet_registry.db"));
 builder.Services.AddSingleton<ICommandService>(_ => new CommandService("fleet_commands.db"));
 builder.Services.AddSingleton<IEventStoreService>(_ => new EventStoreService("fleet_events.db"));
+
+// Rate limiting
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddFixedWindowLimiter("events", limiter =>
+    {
+        limiter.PermitLimit = 120;
+        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        limiter.QueueLimit = 10;
+    });
+});
 
 // Telemetry
 builder.Services.AddOpenTelemetry()
@@ -36,8 +51,8 @@ builder.Services.AddCors(options =>
     options.AddPolicy("LandingPage", policy =>
     {
         policy.WithOrigins("http://localhost:5173", "https://suzukiven0m.github.io")
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+              .WithHeaders("Content-Type", "Authorization")
+              .WithMethods("GET", "POST");
     });
 });
 
@@ -47,6 +62,7 @@ var app = builder.Build();
 
 app.MapHealthChecks("/health");
 app.UseCors("LandingPage");
+app.UseRateLimiter();
 
 var registry = app.Services.GetRequiredService<IShipRegistryService>();
 var commandService = app.Services.GetRequiredService<ICommandService>();
@@ -90,7 +106,7 @@ app.MapPost("/api/events/{shipId}", async (string shipId, HttpContext context) =
     logger.LogInformation("[Cloud] Event from {ShipId}: {EventType} ({Priority})",
         shipId, evt.EventType, evt.Priority);
     return Results.Ok();
-});
+}).RequireRateLimiting("events");
 
 // Receive batch events from ship
 app.MapPost("/api/events/{shipId}/batch", async (string shipId, HttpContext context) =>
@@ -128,7 +144,7 @@ app.MapPost("/api/events/{shipId}/batch", async (string shipId, HttpContext cont
 
     logger.LogInformation("[Cloud] Batch of {Count} events from {ShipId}", events.Count, shipId);
     return Results.Ok();
-});
+}).RequireRateLimiting("events");
 
 // Get recent events for a ship
 app.MapGet("/api/events/{shipId}", async (string shipId, int? limit) =>
@@ -175,12 +191,14 @@ app.MapGet("/api/fleet/{shipId}", async (string shipId) =>
 });
 
 // Register ship
-app.MapPost("/api/fleet", async (ShipInfo ship) =>
+app.MapPost("/api/fleet", async (RegisterShipRequest ship) =>
 {
     if (string.IsNullOrWhiteSpace(ship.ShipId))
         return Results.BadRequest("shipId is required");
     if (string.IsNullOrWhiteSpace(ship.Name))
         return Results.BadRequest("name is required");
+    if (!string.IsNullOrWhiteSpace(ship.IMONumber) && !IMONumber.IsValid(ship.IMONumber))
+        return Results.BadRequest("Invalid IMO number");
 
     await registry.RegisterAsync(ship.ShipId, ship.Name, ship.IMONumber);
     return Results.Created($"/api/fleet/{ship.ShipId}", ship);
@@ -191,6 +209,10 @@ app.MapPost("/api/fleet/{shipId}/position", async (string shipId, PositionUpdate
 {
     if (string.IsNullOrWhiteSpace(shipId))
         return Results.BadRequest("shipId is required");
+    if (request.Latitude is < -90 or > 90)
+        return Results.BadRequest("Latitude must be between -90 and 90");
+    if (request.Longitude is < -180 or > 180)
+        return Results.BadRequest("Longitude must be between -180 and 180");
 
     await registry.UpdatePositionAsync(shipId, request.Latitude, request.Longitude, request.Speed);
     return Results.Ok();
@@ -232,20 +254,29 @@ app.MapPost("/api/commands/{commandId}/delivered", async (Guid commandId) =>
 {
     var cmd = await commandService.GetAsync(commandId);
     if (cmd == null) return Results.NotFound();
+    await commandService.RecordDeliveredAsync(commandId);
     return Results.Ok();
 });
 
 // Ship reports command execution
-app.MapPost("/api/commands/{commandId}/executed", async (Guid commandId) =>
+app.MapPost("/api/commands/{commandId}/executed", async (Guid commandId, ShipCommandReport report) =>
 {
+    var cmd = await commandService.GetAsync(commandId);
+    if (cmd == null) return Results.NotFound();
+    if (cmd.ShipId != report.ShipId)
+        return Results.Forbid();
     await commandService.RecordSuccessAsync(commandId);
     return Results.Ok();
 });
 
 // Ship reports command failure
-app.MapPost("/api/commands/{commandId}/failed", async (Guid commandId, FailureRequest request) =>
+app.MapPost("/api/commands/{commandId}/failed", async (Guid commandId, ShipCommandReport report) =>
 {
-    await commandService.RecordFailureAsync(commandId, request.Reason);
+    var cmd = await commandService.GetAsync(commandId);
+    if (cmd == null) return Results.NotFound();
+    if (cmd.ShipId != report.ShipId)
+        return Results.Forbid();
+    await commandService.RecordFailureAsync(commandId, report.Reason);
     return Results.Ok();
 });
 
@@ -261,8 +292,9 @@ app.MapGet("/api/commands/{shipId}/pending", async (string shipId) =>
 
 app.Run();
 
+public record RegisterShipRequest(string ShipId, string Name, string? IMONumber);
 public record IssueCommandRequest(string CommandType, string Target, Dictionary<string, string>? Parameters);
-public record FailureRequest(string? Reason);
+public record ShipCommandReport(string ShipId, string? Reason);
 public record PositionUpdateRequest(double Latitude, double Longitude, double? Speed);
 
 public class DatabaseHealthCheck : IHealthCheck

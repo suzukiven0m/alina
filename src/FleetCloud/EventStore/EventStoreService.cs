@@ -1,5 +1,7 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using CargoShipMonitoring.Shared.Events;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace CargoShipMonitoring.FleetCloud.EventStore;
@@ -17,12 +19,25 @@ public interface IEventStoreService
 public class EventStoreService : IEventStoreService
 {
     private readonly string _dbPath;
+    private static readonly ConcurrentDictionary<string, bool> _walInitialized = new();
 
     public EventStoreService(string dbPath)
     {
         _dbPath = dbPath;
         using var db = CreateContext();
         db.Database.EnsureCreated();
+        EnsureWalMode(_dbPath);
+    }
+
+    private static void EnsureWalMode(string dbPath)
+    {
+        if (_walInitialized.ContainsKey(dbPath)) return;
+        using var connection = new SqliteConnection($"Data Source={dbPath}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "PRAGMA journal_mode=WAL;";
+        command.ExecuteNonQuery();
+        _walInitialized[dbPath] = true;
     }
 
     public async Task StoreAsync(ShipEvent evt)
@@ -30,7 +45,8 @@ public class EventStoreService : IEventStoreService
         using var db = CreateContext();
         db.Events.Add(new StoredEvent
         {
-            Id = evt.EventId,
+            Id = Guid.NewGuid(),
+            EventId = evt.EventId,
             ShipId = evt.ShipId,
             EventType = evt.EventType,
             Priority = evt.Priority.ToString(),
@@ -44,11 +60,13 @@ public class EventStoreService : IEventStoreService
     public async Task StoreBatchAsync(List<ShipEvent> events)
     {
         using var db = CreateContext();
+        await using var transaction = await db.Database.BeginTransactionAsync();
         foreach (var evt in events)
         {
             db.Events.Add(new StoredEvent
             {
-                Id = evt.EventId,
+                Id = Guid.NewGuid(),
+                EventId = evt.EventId,
                 ShipId = evt.ShipId,
                 EventType = evt.EventType,
                 Priority = evt.Priority.ToString(),
@@ -58,6 +76,7 @@ public class EventStoreService : IEventStoreService
             });
         }
         await db.SaveChangesAsync();
+        await transaction.CommitAsync();
     }
 
     public async Task<List<StoredEvent>> GetEventsForShipAsync(string shipId, int limit = 100)
@@ -93,15 +112,15 @@ public class EventStoreService : IEventStoreService
     public async Task<EventSummary> GetSummaryForShipAsync(string shipId)
     {
         using var db = CreateContext();
-        var events = await db.Events.Where(e => e.ShipId == shipId).ToListAsync();
+        var query = db.Events.Where(e => e.ShipId == shipId);
         return new EventSummary
         {
             ShipId = shipId,
-            TotalEvents = events.Count,
-            CriticalEvents = events.Count(e => e.Priority == "Critical"),
-            OperationalEvents = events.Count(e => e.Priority == "Operational"),
-            TelemetryEvents = events.Count(e => e.Priority == "Telemetry"),
-            LastEventAt = events.MaxBy(e => e.Timestamp)?.Timestamp
+            TotalEvents = await query.CountAsync(),
+            CriticalEvents = await query.CountAsync(e => e.Priority == "Critical"),
+            OperationalEvents = await query.CountAsync(e => e.Priority == "Operational"),
+            TelemetryEvents = await query.CountAsync(e => e.Priority == "Telemetry"),
+            LastEventAt = await query.MaxAsync(e => (DateTime?)e.Timestamp)
         };
     }
 

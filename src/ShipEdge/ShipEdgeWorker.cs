@@ -52,7 +52,8 @@ public class ShipEdgeWorker : BackgroundService
         {
             try
             {
-                await Task.WhenAll(CollectTelemetryAsync(), ProcessQueueAsync());
+                await CollectTelemetryAsync();
+                await ProcessQueueAsync();
             }
             catch (Exception ex)
             {
@@ -115,7 +116,6 @@ public class ShipEdgeWorker : BackgroundService
         }
 
         EventsQueued.Add(readings.Count, new KeyValuePair<string, object?>("priority", "Telemetry"));
-        await PersistWithLockAsync();
     }
 
     private void ExecuteActuator(ActuatorCommand command, SensorReading reading)

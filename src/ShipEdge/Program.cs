@@ -49,7 +49,8 @@ builder.Services.AddSingleton<SatelliteGatewayClass>(sp =>
         failureThreshold: cbConfig.FailureThreshold,
         timeout: TimeSpan.FromSeconds(cbConfig.TimeoutSeconds));
     var factory = sp.GetRequiredService<IHttpClientFactory>();
-    return new SatelliteGatewayClass(cb, factory, config.CloudEndpoint, config.ShipId);
+    var logger = sp.GetRequiredService<ILogger<SatelliteGatewayClass>>();
+    return new SatelliteGatewayClass(cb, factory, config.CloudEndpoint, config.ShipId, logger);
 });
 builder.Services.AddSingleton<ISatelliteGateway>(sp => sp.GetRequiredService<SatelliteGatewayClass>());
 

@@ -21,13 +21,27 @@ public class CommandRetryWorker : BackgroundService
             {
                 using var scope = _serviceProvider.CreateScope();
                 var commandService = scope.ServiceProvider.GetRequiredService<ICommandService>();
-                var pendingCommands = await commandService.GetCommandsReadyForRetryAsync();
+                var readyCommands = await commandService.GetCommandsReadyForRetryAsync();
 
-                foreach (var cmd in pendingCommands)
+                if (readyCommands.Count > 0)
                 {
-                    _logger.LogInformation("Retrying command {CommandId} for ship {ShipId}",
-                        cmd.CommandId, cmd.ShipId);
-                    await commandService.ResetRetryTimerAsync(cmd.CommandId);
+                    _logger.LogWarning(
+                        "{Count} commands are ready for retry but have not been polled by their ships",
+                        readyCommands.Count);
+                }
+
+                // In a poll-based model, commands become visible automatically when
+                // NextRetryAt <= now. This worker monitors for stale commands.
+                foreach (var cmd in readyCommands)
+                {
+                    var age = DateTimeOffset.UtcNow - cmd.CreatedAt;
+                    if (age > TimeSpan.FromHours(24))
+                    {
+                        _logger.LogError(
+                            "Command {CommandId} for ship {ShipId} has been retrying for {Hours:F1} hours. Moving to dead letter.",
+                            cmd.CommandId, cmd.ShipId, age.TotalHours);
+                        await commandService.RecordFailureAsync(cmd.CommandId, "Expired after 24h of retries");
+                    }
                 }
             }
             catch (Exception ex)

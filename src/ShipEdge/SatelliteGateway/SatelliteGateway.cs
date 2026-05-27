@@ -10,17 +10,20 @@ public class SatelliteGateway : ISatelliteGateway
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly string _shipId;
     private readonly string _cloudEndpoint;
+    private readonly ILogger<SatelliteGateway> _logger;
 
     public SatelliteGateway(
         CircuitBreaker circuitBreaker,
         IHttpClientFactory httpClientFactory,
         string cloudEndpoint,
-        string shipId)
+        string shipId,
+        ILogger<SatelliteGateway> logger)
     {
         _circuitBreaker = circuitBreaker;
         _httpClientFactory = httpClientFactory;
         _cloudEndpoint = cloudEndpoint.TrimEnd('/');
         _shipId = shipId;
+        _logger = logger;
     }
 
     public bool CanTransmit() => _circuitBreaker.CanExecute();
@@ -47,13 +50,15 @@ public class SatelliteGateway : ISatelliteGateway
             _circuitBreaker.RecordFailure();
             return false;
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
+            _logger.LogError(ex, "[{ShipId}] Satellite transmission failed: {Message}", _shipId, ex.Message);
             _circuitBreaker.RecordFailure();
             return false;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            _logger.LogError(ex, "[{ShipId}] Unexpected error during satellite transmission", _shipId);
             _circuitBreaker.RecordFailure();
             return false;
         }
@@ -61,8 +66,10 @@ public class SatelliteGateway : ISatelliteGateway
 
     public async Task<bool> TransmitBatchAsync(List<ShipEvent> events)
     {
-        if (!_circuitBreaker.CanExecute() || events.Count == 0)
+        if (!_circuitBreaker.CanExecute())
             return false;
+        if (events.Count == 0)
+            return true;
 
         var httpClient = _httpClientFactory.CreateClient("satellite");
 
@@ -78,16 +85,19 @@ public class SatelliteGateway : ISatelliteGateway
                 return true;
             }
 
+            _logger.LogError("[{ShipId}] Batch transmission failed with status {StatusCode}", _shipId, response.StatusCode);
             _circuitBreaker.RecordFailure();
             return false;
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
+            _logger.LogError(ex, "[{ShipId}] Batch satellite transmission failed: {Message}", _shipId, ex.Message);
             _circuitBreaker.RecordFailure();
             return false;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            _logger.LogError(ex, "[{ShipId}] Unexpected error during batch satellite transmission", _shipId);
             _circuitBreaker.RecordFailure();
             return false;
         }

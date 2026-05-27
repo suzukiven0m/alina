@@ -1,4 +1,5 @@
 using CargoShipMonitoring.Shared.Events;
+using Microsoft.Extensions.Logging;
 using System.Net;
 using SatelliteGatewayNs = CargoShipMonitoring.ShipEdge.SatelliteGateway;
 
@@ -6,10 +7,12 @@ namespace CargoShipMonitoring.ShipEdge.Tests;
 
 public class SatelliteGatewayTests
 {
+    private static readonly ILogger<SatelliteGatewayNs.SatelliteGateway> NullLogger = LoggerFactory.Create(_ => { }).CreateLogger<SatelliteGatewayNs.SatelliteGateway>();
+
     private static SatelliteGatewayNs.SatelliteGateway CreateGateway(SatelliteGatewayNs.CircuitBreaker cb, HttpStatusCode statusCode = HttpStatusCode.OK)
     {
         var factory = new HttpClientFactoryStub(statusCode);
-        return new SatelliteGatewayNs.SatelliteGateway(cb, factory, "http://localhost:5000", "MSC-001");
+        return new SatelliteGatewayNs.SatelliteGateway(cb, factory, "http://localhost:5000", "MSC-001", NullLogger);
     }
 
     [Fact]
@@ -65,7 +68,7 @@ public class SatelliteGatewayTests
     {
         var cb = new SatelliteGatewayNs.CircuitBreaker(failureThreshold: 5, timeout: TimeSpan.FromHours(1));
         var factory = new FailingHttpClientFactoryStub();
-        var gateway = new SatelliteGatewayNs.SatelliteGateway(cb, factory, "http://localhost:5000", "MSC-001");
+        var gateway = new SatelliteGatewayNs.SatelliteGateway(cb, factory, "http://localhost:5000", "MSC-001", NullLogger);
 
         var evt = new SensorReadingEvent { ShipId = "MSC-001" };
         var result = await gateway.TransmitAsync(evt);
@@ -112,17 +115,17 @@ public class SatelliteGatewayTests
 
         // Fail once to open the circuit
         var failingFactory = new FailingHttpClientFactoryStub();
-        var failingGateway = new SatelliteGatewayNs.SatelliteGateway(cb, failingFactory, "http://localhost:5000", "MSC-001");
+        var failingGateway = new SatelliteGatewayNs.SatelliteGateway(cb, failingFactory, "http://localhost:5000", "MSC-001", NullLogger);
         await failingGateway.TransmitAsync(new SensorReadingEvent { ShipId = "MSC-001" });
         Assert.Equal(SatelliteGatewayNs.CircuitBreakerState.Open, cb.State);
 
         // Advance time past timeout and succeed
         var timeProvider = new FakeTimeProvider();
         var cb2 = new SatelliteGatewayNs.CircuitBreaker(failureThreshold: 1, timeout: TimeSpan.FromSeconds(1), timeProvider);
-        var gateway2 = new SatelliteGatewayNs.SatelliteGateway(cb2, new HttpClientFactoryStub(HttpStatusCode.OK), "http://localhost:5000", "MSC-001");
+        var gateway2 = new SatelliteGatewayNs.SatelliteGateway(cb2, new HttpClientFactoryStub(HttpStatusCode.OK), "http://localhost:5000", "MSC-001", NullLogger);
 
         // Fail to open
-        var failingGateway2 = new SatelliteGatewayNs.SatelliteGateway(cb2, new FailingHttpClientFactoryStub(), "http://localhost:5000", "MSC-001");
+        var failingGateway2 = new SatelliteGatewayNs.SatelliteGateway(cb2, new FailingHttpClientFactoryStub(), "http://localhost:5000", "MSC-001", NullLogger);
         await failingGateway2.TransmitAsync(new SensorReadingEvent { ShipId = "MSC-001" });
         Assert.Equal(SatelliteGatewayNs.CircuitBreakerState.Open, cb2.State);
 

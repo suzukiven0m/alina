@@ -5,16 +5,26 @@ using System.Text.Json;
 
 namespace CargoShipMonitoring.Simulators;
 
-public class SensorSimulator
+public class SensorSimulator : IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly string _shipId;
     private readonly Random _random = new();
+    private bool _disposed;
 
     public SensorSimulator(string cloudEndpoint, string shipId)
     {
         _shipId = shipId;
         _httpClient = new HttpClient { BaseAddress = new Uri(cloudEndpoint) };
+    }
+
+    public void Dispose()
+    {
+        if (!_disposed)
+        {
+            _httpClient.Dispose();
+            _disposed = true;
+        }
     }
 
     public async Task SimulateNormalReadingsAsync(int count = 5)

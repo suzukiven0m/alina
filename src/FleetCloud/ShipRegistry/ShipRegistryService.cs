@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace CargoShipMonitoring.FleetCloud.ShipRegistry;
@@ -5,6 +7,7 @@ namespace CargoShipMonitoring.FleetCloud.ShipRegistry;
 public class ShipRegistryService : IShipRegistryService
 {
     private readonly string _dbPath;
+    private static readonly ConcurrentDictionary<string, bool> _walInitialized = new();
 
     public ShipRegistryService(string dbPath)
     {
@@ -12,6 +15,18 @@ public class ShipRegistryService : IShipRegistryService
 
         using var db = CreateContext();
         db.Database.EnsureCreated();
+        EnsureWalMode(_dbPath);
+    }
+
+    private static void EnsureWalMode(string dbPath)
+    {
+        if (_walInitialized.ContainsKey(dbPath)) return;
+        using var connection = new SqliteConnection($"Data Source={dbPath}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "PRAGMA journal_mode=WAL;";
+        command.ExecuteNonQuery();
+        _walInitialized[dbPath] = true;
     }
 
     public async Task RegisterAsync(string shipId, string name, string? imoNumber = null)

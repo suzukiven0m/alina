@@ -35,6 +35,7 @@ public class EventStoreDbContext : DbContext
 public class StoredEvent
 {
     public Guid Id { get; set; }
+    public Guid EventId { get; set; }
     public string ShipId { get; set; } = string.Empty;
     public string EventType { get; set; } = string.Empty;
     public string Priority { get; set; } = string.Empty;

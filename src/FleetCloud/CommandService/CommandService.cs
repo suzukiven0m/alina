@@ -1,5 +1,7 @@
 using CargoShipMonitoring.Shared.Models;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Concurrent;
 using System.Text.Json;
 
 namespace CargoShipMonitoring.FleetCloud.CommandService;
@@ -8,6 +10,7 @@ public class CommandService : ICommandService
 {
     private readonly string _dbPath;
     private readonly int _maxRetries;
+    private static readonly ConcurrentDictionary<string, bool> _walInitialized = new();
 
     public CommandService(string dbPath, int maxRetries = 10)
     {
@@ -16,6 +19,18 @@ public class CommandService : ICommandService
 
         using var db = new CommandDbContext(_dbPath);
         db.Database.EnsureCreated();
+        EnsureWalMode(_dbPath);
+    }
+
+    private static void EnsureWalMode(string dbPath)
+    {
+        if (_walInitialized.ContainsKey(dbPath)) return;
+        using var connection = new SqliteConnection($"Data Source={dbPath}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "PRAGMA journal_mode=WAL;";
+        command.ExecuteNonQuery();
+        _walInitialized[dbPath] = true;
     }
 
     public async Task<Guid> IssueAsync(string shipId, string commandType, string target, Dictionary<string, string> parameters)
@@ -48,9 +63,10 @@ public class CommandService : ICommandService
     public async Task<List<PendingCommand>> GetPendingForShipAsync(string shipId)
     {
         using var db = new CommandDbContext(_dbPath);
+        var now = DateTimeOffset.UtcNow;
 
         return await db.Commands
-            .Where(c => c.ShipId == shipId && c.Status == CommandStatus.Issued)
+            .Where(c => c.ShipId == shipId && c.Status == CommandStatus.Issued && c.NextRetryAt <= now)
             .OrderBy(c => c.CreatedAt)
             .ToListAsync();
     }
@@ -68,9 +84,14 @@ public class CommandService : ICommandService
     public async Task RecordFailureAsync(Guid commandId, string? reason = null)
     {
         using var db = new CommandDbContext(_dbPath);
+        await using var transaction = await db.Database.BeginTransactionAsync();
 
         var cmd = await db.Commands.FindAsync(commandId);
-        if (cmd == null) return;
+        if (cmd == null)
+        {
+            await transaction.RollbackAsync();
+            return;
+        }
 
         cmd.RetryCount++;
         cmd.LastAttemptAt = DateTimeOffset.UtcNow;
@@ -88,6 +109,7 @@ public class CommandService : ICommandService
         }
 
         await db.SaveChangesAsync();
+        await transaction.CommitAsync();
     }
 
     public async Task RecordSuccessAsync(Guid commandId)
@@ -99,6 +121,17 @@ public class CommandService : ICommandService
 
         cmd.Status = CommandStatus.Executed;
         cmd.NextRetryAt = null;
+        await db.SaveChangesAsync();
+    }
+
+    public async Task RecordDeliveredAsync(Guid commandId)
+    {
+        using var db = new CommandDbContext(_dbPath);
+
+        var cmd = await db.Commands.FindAsync(commandId);
+        if (cmd == null) return;
+
+        cmd.Status = CommandStatus.Delivered;
         await db.SaveChangesAsync();
     }
 

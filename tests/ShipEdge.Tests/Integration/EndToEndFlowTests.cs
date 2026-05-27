@@ -1,6 +1,7 @@
 using CargoShipMonitoring.Shared.Events;
 using CargoShipMonitoring.Shared.Models;
 using CargoShipMonitoring.ShipEdge.RulesEngine;
+using Microsoft.Extensions.Logging;
 using PriorityQueueNs = CargoShipMonitoring.ShipEdge.PriorityEventQueue;
 using SatelliteGatewayNs = CargoShipMonitoring.ShipEdge.SatelliteGateway;
 
@@ -30,7 +31,8 @@ public class EndToEndFlowTests : IDisposable
         rulesEngine.LoadRules(new RuleLoader().LoadDefaultRules());
 
         var cb = new SatelliteGatewayNs.CircuitBreaker(failureThreshold: 1, timeout: TimeSpan.FromHours(1));
-        var gateway = new SatelliteGatewayNs.SatelliteGateway(cb, new TestHttpClientFactory(), "http://invalid", "MSC-TEST");
+        var logger = LoggerFactory.Create(_ => { }).CreateLogger<SatelliteGatewayNs.SatelliteGateway>();
+        var gateway = new SatelliteGatewayNs.SatelliteGateway(cb, new TestHttpClientFactory(), "http://invalid", "MSC-TEST", logger);
 
         // Simulate fire detection sensor
         var fireReading = new SensorReading
